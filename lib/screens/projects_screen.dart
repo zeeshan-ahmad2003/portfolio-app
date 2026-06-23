@@ -11,6 +11,8 @@ class Project {
   final String fullDescription;
   final IconData icon;
   final List<Color> colors;
+  final String category;
+  final String? imagePath;
 
   Project({
     required this.title,
@@ -21,74 +23,120 @@ class Project {
     required this.fullDescription,
     required this.icon,
     required this.colors,
+    required this.category,
+    this.imagePath,
   });
 }
 
-class ProjectsScreen extends StatelessWidget {
+class ProjectsScreen extends StatefulWidget {
   const ProjectsScreen({super.key});
+
+  @override
+  State<ProjectsScreen> createState() => _ProjectsScreenState();
+}
+
+class _ProjectsScreenState extends State<ProjectsScreen> {
+  String _selectedCategory = 'All';
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  final List<String> _categories = ['All', 'Flutter', 'Python', 'AI/ML'];
+
+  final List<Project> _allProjects = [
+    Project(
+      title: 'YouTube Summarizer',
+      description: 'AI-powered video summarizer with RAG architecture.',
+      tech: 'Python · LangChain · Streamlit',
+      githubUrl: 'https://github.com/zeeshan-ahmad2003/youtube-summarizer',
+      liveUrl: 'https://youtube-summarizer-24gt.onrender.com',
+      fullDescription:
+          'A RAG-based tool that takes a YouTube video URL, extracts the '
+          'transcript, and generates a smart summary using a language model. '
+          'Built with Python, LangChain, and deployed live on Render.',
+      icon: Icons.play_circle_rounded,
+      colors: [const Color(0xFFE53935), const Color(0xFFFF6F60)],
+      category: 'AI/ML',
+      imagePath: 'assets/images/yt_summarizer.png',
+    ),
+    Project(
+      title: 'PDF Compressor',
+      description: 'Compress PDF files via web or desktop app.',
+      tech: 'Python · Flask · Streamlit · Tkinter',
+      githubUrl: 'https://github.com/zeeshan-ahmad2003',
+      liveUrl: 'https://zeeshans-pdf-tool.streamlit.app',
+      fullDescription:
+          'Built in three versions: a Flask web app on Render, a Streamlit '
+          'app on Streamlit Cloud, and an offline Tkinter desktop app. '
+          'Supports files up to 200MB across four quality presets.',
+      icon: Icons.picture_as_pdf_rounded,
+      colors: [const Color(0xFFF97316), const Color(0xFFFFB347)],
+      category: 'Python',
+      imagePath: 'assets/images/pdf_compressor.png',
+    ),
+    Project(
+      title: 'Portfolio App',
+      description: 'Professional Flutter mobile portfolio app.',
+      tech: 'Flutter · Dart',
+      githubUrl:
+          'https://github.com/zeeshan-ahmad2003/portfolio-app/tree/week-3',
+      liveUrl: 'https://github.com/zeeshan-ahmad2003/portfolio-app/tree/week-3',
+      fullDescription:
+          'A professional mobile portfolio app built with Flutter during '
+          'Codiora Software House internship. Features bottom navigation, '
+          'project details, skills with progress bars, dark/light mode, '
+          'local data storage and profile editing.',
+      icon: Icons.phone_android_rounded,
+      colors: [AppColors.cyan, AppColors.purple],
+      category: 'Flutter',
+      imagePath: 'assets/images/portfolio_app.png',
+    ),
+    Project(
+      title: 'AI Doctor Assistant',
+      description: 'Multi-agent AI system for medical queries.',
+      tech: 'Python · Groq API · LangGraph',
+      githubUrl: 'https://github.com/zeeshan-ahmad2003',
+      liveUrl: 'https://github.com/zeeshan-ahmad2003',
+      fullDescription:
+          'A three-agent system built with Python and Groq API. Agents '
+          'handle diagnosis suggestions, prescription advice, and follow-up '
+          'questions. Built as a KPITB course final project.',
+      icon: Icons.medical_services_rounded,
+      colors: [AppColors.purple, AppColors.cyan],
+      category: 'AI/ML',
+      imagePath: null,
+    ),
+  ];
+
+  List<Project> get _filteredProjects {
+    return _allProjects.where((p) {
+      final matchesCategory =
+          _selectedCategory == 'All' || p.category == _selectedCategory;
+      final matchesSearch =
+          _searchQuery.isEmpty ||
+          p.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          p.tech.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          p.description.toLowerCase().contains(_searchQuery.toLowerCase());
+      return matchesCategory && matchesSearch;
+    }).toList();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    final projects = [
-      Project(
-        title: 'YouTube Summarizer',
-        description: 'AI-powered video summarizer with RAG architecture.',
-        tech: 'Python · LangChain · Streamlit',
-        githubUrl: 'https://github.com/zeeshan-ahmad2003/youtube-summarizer',
-        liveUrl: 'https://youtube-summarizer-24gt.onrender.com',
-        fullDescription:
-            'A RAG-based tool that takes a YouTube video URL, extracts the transcript, '
-            'and generates a smart summary using a language model. Built with Python, '
-            'LangChain, and deployed live on Render.',
-        icon: Icons.play_circle_rounded,
-        colors: [const Color(0xFFE53935), const Color(0xFFFF6F60)],
-      ),
-      Project(
-        title: 'PDF Compressor',
-        description: 'Compress PDF files via web or desktop app.',
-        tech: 'Python · Flask · Streamlit · Tkinter',
-        githubUrl: 'https://github.com/zeeshan-ahmad2003',
-        liveUrl: 'https://zeeshans-pdf-tool.streamlit.app',
-        fullDescription:
-            'Built in three versions: a Flask web app on Render, a Streamlit app on '
-            'Streamlit Cloud, and an offline Tkinter desktop app.',
-        icon: Icons.picture_as_pdf_rounded,
-        colors: [const Color(0xFFF97316), const Color(0xFFFFB347)],
-      ),
-      Project(
-        title: 'Portfolio App',
-        description: 'This Flutter mobile portfolio app.',
-        tech: 'Flutter · Dart',
-        githubUrl: 'https://github.com/zeeshan-ahmad2003/portfolio-app',
-        liveUrl: 'https://github.com/zeeshan-ahmad2003/portfolio-app',
-        fullDescription:
-            'A professional mobile portfolio app built with Flutter during the '
-            'Codiora Software House internship. Features bottom navigation, '
-            'project details, skills with progress bars, and dark mode.',
-        icon: Icons.phone_android_rounded,
-        colors: [AppColors.cyan, AppColors.purple],
-      ),
-      Project(
-        title: 'AI Doctor Assistant',
-        description: 'Multi-agent AI system for medical queries.',
-        tech: 'Python · Groq API · LangGraph',
-        githubUrl: 'https://github.com/zeeshan-ahmad2003',
-        liveUrl: 'https://github.com/zeeshan-ahmad2003',
-        fullDescription:
-            'A three-agent system built with Python and Groq API. Agents handle '
-            'diagnosis suggestions, prescription advice, and follow-up questions. '
-            'Built as a KPITB course final project.',
-        icon: Icons.medical_services_rounded,
-        colors: [AppColors.purple, AppColors.cyan],
-      ),
-    ];
+    final bg = isDark ? AppColors.bgDark : AppColors.lightBg;
+    final cardBg = isDark ? AppColors.cardDark : AppColors.lightCard;
+    final textSub = isDark ? AppColors.textGrey : AppColors.lightTextSub;
 
     return Scaffold(
-      backgroundColor: isDark ? AppColors.bgDark : const Color(0xFFF0F4FF),
+      backgroundColor: bg,
       appBar: AppBar(
-        backgroundColor: isDark ? AppColors.bgDark : const Color(0xFFF0F4FF),
+        backgroundColor: bg,
         elevation: 0,
         title: ShaderMask(
           shaderCallback: (bounds) => const LinearGradient(
@@ -104,12 +152,191 @@ class ProjectsScreen extends StatelessWidget {
           ),
         ),
       ),
-      body: ListView.builder(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-        itemCount: projects.length,
-        itemBuilder: (context, index) {
-          return _ProjectCard(project: projects[index], isDark: isDark);
-        },
+      body: Column(
+        children: [
+          // ── Search Bar ──
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: Container(
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: AppColors.cyan.withOpacity(0.15),
+                  width: 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.cyan.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: TextField(
+                controller: _searchController,
+                onChanged: (val) => setState(() => _searchQuery = val),
+                style: TextStyle(
+                  color: isDark ? AppColors.textWhite : AppColors.lightText,
+                  fontSize: 14,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Search projects or technologies...',
+                  hintStyle: TextStyle(color: textSub, fontSize: 13),
+                  prefixIcon: const Icon(
+                    Icons.search_rounded,
+                    color: AppColors.cyan,
+                    size: 22,
+                  ),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                          icon: Icon(
+                            Icons.close_rounded,
+                            color: textSub,
+                            size: 18,
+                          ),
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() => _searchQuery = '');
+                          },
+                        )
+                      : null,
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          // ── Category Filter Chips ──
+          SizedBox(
+            height: 38,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: _categories.length,
+              itemBuilder: (context, index) {
+                final cat = _categories[index];
+                final isSelected = _selectedCategory == cat;
+                return GestureDetector(
+                  onTap: () => setState(() => _selectedCategory = cat),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 250),
+                    margin: const EdgeInsets.only(right: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      gradient: isSelected
+                          ? const LinearGradient(
+                              colors: [AppColors.cyan, AppColors.purple],
+                            )
+                          : null,
+                      color: isSelected ? null : cardBg,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: isSelected
+                            ? Colors.transparent
+                            : AppColors.cyan.withOpacity(0.2),
+                        width: 1,
+                      ),
+                      boxShadow: isSelected
+                          ? [
+                              BoxShadow(
+                                color: AppColors.cyan.withOpacity(0.3),
+                                blurRadius: 10,
+                                offset: const Offset(0, 3),
+                              ),
+                            ]
+                          : [],
+                    ),
+                    child: Text(
+                      cat,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: isSelected
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                        color: isSelected ? Colors.white : textSub,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+
+          const SizedBox(height: 8),
+
+          // ── Results count ──
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                Text(
+                  '${_filteredProjects.length} project${_filteredProjects.length != 1 ? 's' : ''} found',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: textSub,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 8),
+
+          // ── Projects List ──
+          Expanded(
+            child: _filteredProjects.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.search_off_rounded,
+                          size: 60,
+                          color: AppColors.cyan.withOpacity(0.3),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'No projects found',
+                          style: TextStyle(
+                            color: textSub,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Try a different search or category',
+                          style: TextStyle(
+                            color: textSub.withOpacity(0.7),
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                    itemCount: _filteredProjects.length,
+                    itemBuilder: (context, index) {
+                      return _ProjectCard(
+                        project: _filteredProjects[index],
+                        isDark: isDark,
+                      );
+                    },
+                  ),
+          ),
+        ],
       ),
     );
   }
@@ -140,7 +367,7 @@ class _ProjectCard extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
-          color: isDark ? AppColors.cardDark : Colors.white,
+          color: isDark ? AppColors.cardDark : AppColors.lightCard,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: project.colors.first.withOpacity(0.25),
@@ -148,7 +375,7 @@ class _ProjectCard extends StatelessWidget {
           ),
           boxShadow: [
             BoxShadow(
-              color: project.colors.first.withOpacity(isDark ? 0.15 : 0.08),
+              color: project.colors.first.withOpacity(isDark ? 0.12 : 0.07),
               blurRadius: 16,
               offset: const Offset(0, 5),
             ),
@@ -157,109 +384,125 @@ class _ProjectCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              height: 100,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: project.colors
-                      .map((c) => c.withOpacity(isDark ? 0.25 : 0.15))
-                      .toList(),
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(18),
-                ),
+            // ── Banner: real image or gradient icon ──
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(18),
               ),
-              child: Stack(
-                children: [
-                  Positioned(
-                    right: -20,
-                    top: -20,
-                    child: Container(
-                      width: 100,
-                      height: 100,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: project.colors.first.withOpacity(0.1),
-                      ),
-                    ),
-                  ),
-                  Center(
-                    child: Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(colors: project.colors),
-                        boxShadow: [
-                          BoxShadow(
-                            color: project.colors.first.withOpacity(0.4),
-                            blurRadius: 16,
+              child: project.imagePath != null
+                  ? Stack(
+                      children: [
+                        Image.asset(
+                          project.imagePath!,
+                          height: 130,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) =>
+                              _iconBanner(isDark: isDark),
+                        ),
+                        // Gradient overlay
+                        Container(
+                          height: 130,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.transparent,
+                                Colors.black.withOpacity(0.5),
+                              ],
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                            ),
                           ),
-                        ],
-                      ),
-                      child: Icon(project.icon, size: 32, color: Colors.white),
-                    ),
-                  ),
-                ],
-              ),
+                        ),
+                        // Category badge
+                        Positioned(
+                          top: 10,
+                          right: 12,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: project.colors.first.withOpacity(0.85),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              project.category,
+                              style: const TextStyle(
+                                fontSize: 10,
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : _iconBanner(isDark: isDark),
             ),
+
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     project.title,
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: 15,
                       fontWeight: FontWeight.w700,
-                      color: isDark ? AppColors.textWhite : Colors.black87,
+                      color: isDark ? AppColors.textWhite : AppColors.lightText,
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
                   Text(
                     project.description,
                     style: TextStyle(
-                      fontSize: 13,
-                      color: isDark ? AppColors.textGrey : Colors.black54,
-                      height: 1.5,
+                      fontSize: 12,
+                      color: isDark
+                          ? AppColors.textGrey
+                          : AppColors.lightTextSub,
+                      height: 1.4,
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 5,
+                      horizontal: 8,
+                      vertical: 4,
                     ),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: project.colors
-                            .map((c) => c.withOpacity(0.12))
+                            .map((c) => c.withOpacity(0.1))
                             .toList(),
                       ),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(6),
                       border: Border.all(
-                        color: project.colors.first.withOpacity(0.3),
+                        color: project.colors.first.withOpacity(0.25),
                       ),
                     ),
                     child: Text(
                       project.tech,
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: 10,
                         color: project.colors.first,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 12),
                   Row(
                     children: [
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: () => _launchURL(project.githubUrl),
-                          icon: const Icon(Icons.code_rounded, size: 16),
-                          label: const Text('GitHub'),
+                          icon: const Icon(Icons.code_rounded, size: 14),
+                          label: const Text(
+                            'GitHub',
+                            style: TextStyle(fontSize: 12),
+                          ),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: project.colors.first,
                             side: BorderSide(
@@ -268,11 +511,11 @@ class _ProjectCard extends StatelessWidget {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: Container(
                           decoration: BoxDecoration(
@@ -290,12 +533,15 @@ class _ProjectCard extends StatelessWidget {
                             onPressed: () => _launchURL(project.liveUrl),
                             icon: const Icon(
                               Icons.launch_rounded,
-                              size: 16,
+                              size: 14,
                               color: Colors.white,
                             ),
                             label: const Text(
                               'Live Demo',
-                              style: TextStyle(color: Colors.white),
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                              ),
                             ),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.transparent,
@@ -303,7 +549,7 @@ class _ProjectCard extends StatelessWidget {
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(10),
                               ),
-                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              padding: const EdgeInsets.symmetric(vertical: 8),
                             ),
                           ),
                         ),
@@ -318,8 +564,78 @@ class _ProjectCard extends StatelessWidget {
       ),
     );
   }
+
+  Widget _iconBanner({required bool isDark}) {
+    return Container(
+      height: 130,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: project.colors
+              .map((c) => c.withOpacity(isDark ? 0.25 : 0.12))
+              .toList(),
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: -15,
+            top: -15,
+            child: Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: project.colors.first.withOpacity(0.08),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 10,
+            right: 12,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: project.colors.first.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: project.colors.first.withOpacity(0.3),
+                ),
+              ),
+              child: Text(
+                project.category,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: project.colors.first,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+          Center(
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(colors: project.colors),
+                boxShadow: [
+                  BoxShadow(
+                    color: project.colors.first.withOpacity(0.4),
+                    blurRadius: 14,
+                  ),
+                ],
+              ),
+              child: Icon(project.icon, size: 28, color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
+// ── Project Detail Screen ──
 class ProjectDetailScreen extends StatelessWidget {
   final Project project;
   final bool isDark;
@@ -339,10 +655,12 @@ class ProjectDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bg = isDark ? AppColors.bgDark : AppColors.lightBg;
+
     return Scaffold(
-      backgroundColor: isDark ? AppColors.bgDark : const Color(0xFFF0F4FF),
+      backgroundColor: bg,
       appBar: AppBar(
-        backgroundColor: isDark ? AppColors.bgDark : const Color(0xFFF0F4FF),
+        backgroundColor: bg,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_rounded, color: AppColors.cyan),
@@ -352,7 +670,8 @@ class ProjectDetailScreen extends StatelessWidget {
           project.title,
           style: TextStyle(
             fontWeight: FontWeight.w700,
-            color: isDark ? AppColors.textWhite : Colors.black87,
+            fontSize: 18,
+            color: isDark ? AppColors.textWhite : AppColors.lightText,
           ),
         ),
       ),
@@ -361,55 +680,78 @@ class ProjectDetailScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: double.infinity,
-              height: 160,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: project.colors
-                      .map((c) => c.withOpacity(isDark ? 0.25 : 0.15))
-                      .toList(),
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(
-                  color: project.colors.first.withOpacity(0.2),
-                ),
-              ),
-              child: Center(
-                child: Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(colors: project.colors),
-                    boxShadow: [
-                      BoxShadow(
-                        color: project.colors.first.withOpacity(0.5),
-                        blurRadius: 24,
-                      ),
-                    ],
-                  ),
-                  child: Icon(project.icon, size: 52, color: Colors.white),
-                ),
-              ),
+            // ── Banner with real image or icon ──
+            ClipRRect(
+              borderRadius: BorderRadius.circular(18),
+              child: project.imagePath != null
+                  ? Stack(
+                      children: [
+                        Image.asset(
+                          project.imagePath!,
+                          height: 180,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => _detailIconBanner(),
+                        ),
+                        Container(
+                          height: 180,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.transparent,
+                                Colors.black.withOpacity(0.6),
+                              ],
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          bottom: 14,
+                          left: 14,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(colors: project.colors),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              project.category,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : _detailIconBanner(),
             ),
+
             const SizedBox(height: 20),
+
             Text(
               project.title,
               style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.w800,
-                color: isDark ? AppColors.textWhite : Colors.black87,
+                color: isDark ? AppColors.textWhite : AppColors.lightText,
               ),
             ),
-            const SizedBox(height: 10),
+
+            const SizedBox(height: 8),
+
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: project.colors
-                      .map((c) => c.withOpacity(0.12))
+                      .map((c) => c.withOpacity(0.1))
                       .toList(),
                 ),
                 borderRadius: BorderRadius.circular(8),
@@ -426,25 +768,32 @@ class ProjectDetailScreen extends StatelessWidget {
                 ),
               ),
             ),
+
             const SizedBox(height: 20),
+
             Text(
               'About this Project',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
-                color: isDark ? AppColors.textWhite : Colors.black87,
+                color: isDark ? AppColors.textWhite : AppColors.lightText,
               ),
             ),
+
             const SizedBox(height: 10),
+
             Text(
               project.fullDescription,
               style: TextStyle(
                 fontSize: 14,
                 height: 1.8,
-                color: isDark ? AppColors.textGrey : Colors.black54,
+                color: isDark ? AppColors.textGrey : AppColors.lightTextSub,
               ),
             ),
+
             const SizedBox(height: 30),
+
+            // GitHub button
             Container(
               width: double.infinity,
               decoration: BoxDecoration(
@@ -468,7 +817,10 @@ class ProjectDetailScreen extends StatelessWidget {
                 ),
               ),
             ),
+
             const SizedBox(height: 12),
+
+            // Live Demo button
             Container(
               width: double.infinity,
               decoration: BoxDecoration(
@@ -500,6 +852,37 @@ class ProjectDetailScreen extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _detailIconBanner() {
+    return Container(
+      height: 180,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: project.colors
+              .map((c) => c.withOpacity(isDark ? 0.25 : 0.12))
+              .toList(),
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: LinearGradient(colors: project.colors),
+            boxShadow: [
+              BoxShadow(
+                color: project.colors.first.withOpacity(0.5),
+                blurRadius: 24,
+              ),
+            ],
+          ),
+          child: Icon(project.icon, size: 50, color: Colors.white),
         ),
       ),
     );

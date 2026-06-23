@@ -4,8 +4,9 @@ import 'screens/home_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/projects_screen.dart';
 import 'screens/contact_screen.dart';
+import 'services/storage_service.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -13,7 +14,8 @@ void main() {
       statusBarIconBrightness: Brightness.light,
     ),
   );
-  runApp(const MyApp());
+  final savedDark = await StorageService.loadTheme();
+  runApp(MyApp(initialDarkMode: savedDark));
 }
 
 class AppColors {
@@ -27,33 +29,44 @@ class AppColors {
   static const textWhite = Color(0xFFFFFFFF);
   static const textGrey = Color(0xFFA0AEC0);
   static const textDim = Color(0xFF6B7280);
+  static const success = Color(0xFF00C896);
+  static const lightBg = Color(0xFFF0F4FF);
+  static const lightCard = Color(0xFFFFFFFF);
+  static const lightText = Color(0xFF1A1A2E);
+  static const lightTextSub = Color(0xFF666680);
 }
 
 class MyApp extends StatefulWidget {
-  const MyApp({super.key});
+  final bool initialDarkMode;
+  const MyApp({super.key, required this.initialDarkMode});
 
   @override
   State<MyApp> createState() => _MyAppState();
 }
 
 class _MyAppState extends State<MyApp> {
-  bool _isDarkMode = true;
+  late bool _isDarkMode;
 
-  void _toggleTheme() {
-    setState(() {
-      _isDarkMode = !_isDarkMode;
-    });
+  @override
+  void initState() {
+    super.initState();
+    _isDarkMode = widget.initialDarkMode;
+  }
+
+  void _toggleTheme() async {
+    setState(() => _isDarkMode = !_isDarkMode);
+    await StorageService.saveTheme(_isDarkMode);
   }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Zeeshan Ahmad',
+      title: '_ZA✨',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
         brightness: Brightness.light,
-        scaffoldBackgroundColor: const Color(0xFFF0F4FF),
+        scaffoldBackgroundColor: AppColors.lightBg,
         colorScheme: ColorScheme.fromSeed(
           seedColor: AppColors.cyan,
           brightness: Brightness.light,
@@ -97,69 +110,149 @@ class _MainScreenState extends State<MainScreen> {
 
     final screens = [
       HomeScreen(isDarkMode: isDark, onToggleTheme: widget.onToggleTheme),
-      const ProfileScreen(),
+      ProfileScreen(isDarkMode: isDark),
       const ProjectsScreen(),
       const ContactScreen(),
     ];
 
     return Scaffold(
-      body: screens[_selectedIndex],
-      bottomNavigationBar: Container(
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 250),
+        switchInCurve: Curves.easeOut,
+        switchOutCurve: Curves.easeIn,
+        child: KeyedSubtree(
+          key: ValueKey(_selectedIndex),
+          child: screens[_selectedIndex],
+        ),
+      ),
+      bottomNavigationBar: _PremiumNavBar(
+        selectedIndex: _selectedIndex,
+        isDark: isDark,
+        onTap: (index) => setState(() => _selectedIndex = index),
+      ),
+    );
+  }
+}
+
+// ── Premium Floating Nav Bar ──
+class _PremiumNavBar extends StatelessWidget {
+  final int selectedIndex;
+  final bool isDark;
+  final Function(int) onTap;
+
+  const _PremiumNavBar({
+    required this.selectedIndex,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final items = [
+      {'icon': Icons.home_rounded, 'label': 'Home'},
+      {'icon': Icons.person_rounded, 'label': 'Profile'},
+      {'icon': Icons.work_rounded, 'label': 'Projects'},
+      {'icon': Icons.mail_rounded, 'label': 'Contact'},
+    ];
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+      color: isDark ? AppColors.bgDark : AppColors.lightBg,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         decoration: BoxDecoration(
-          color: isDark ? AppColors.cardDark : Colors.white,
-          border: Border(
-            top: BorderSide(
-              color: isDark
-                  ? AppColors.cyan.withOpacity(0.15)
-                  : Colors.grey.shade200,
-              width: 1,
-            ),
+          color: isDark ? AppColors.cardDark : AppColors.lightCard,
+          borderRadius: BorderRadius.circular(32),
+          border: Border.all(
+            color: isDark
+                ? AppColors.cyan.withOpacity(0.2)
+                : AppColors.cyan.withOpacity(0.15),
+            width: 1,
           ),
           boxShadow: [
             BoxShadow(
               color: isDark
-                  ? AppColors.cyan.withOpacity(0.05)
+                  ? AppColors.cyan.withOpacity(0.08)
                   : Colors.black.withOpacity(0.08),
-              blurRadius: 20,
-              offset: const Offset(0, -4),
+              blurRadius: 24,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
-        child: BottomNavigationBar(
-          currentIndex: _selectedIndex,
-          selectedItemColor: AppColors.cyan,
-          unselectedItemColor: AppColors.textDim,
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          type: BottomNavigationBarType.fixed,
-          selectedLabelStyle: const TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 11,
-          ),
-          unselectedLabelStyle: const TextStyle(fontSize: 11),
-          onTap: (index) => setState(() => _selectedIndex = index),
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home_outlined),
-              activeIcon: Icon(Icons.home_rounded),
-              label: 'Home',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline_rounded),
-              activeIcon: Icon(Icons.person_rounded),
-              label: 'Profile',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.work_outline_rounded),
-              activeIcon: Icon(Icons.work_rounded),
-              label: 'Projects',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.mail_outline_rounded),
-              activeIcon: Icon(Icons.mail_rounded),
-              label: 'Contact',
-            ),
-          ],
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: List.generate(items.length, (index) {
+            final isActive = selectedIndex == index;
+            final icon = items[index]['icon'] as IconData;
+            final label = items[index]['label'] as String;
+
+            return GestureDetector(
+              onTap: () => onTap(index),
+              behavior: HitTestBehavior.opaque,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeOut,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Active — raised glowing bubble
+                    if (isActive)
+                      Container(
+                        width: 46,
+                        height: 46,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: const LinearGradient(
+                            colors: [AppColors.cyan, AppColors.purple],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.cyan.withOpacity(0.4),
+                              blurRadius: 16,
+                              spreadRadius: 1,
+                            ),
+                          ],
+                        ),
+                        child: Icon(icon, color: Colors.white, size: 22),
+                      )
+                    else
+                      SizedBox(
+                        width: 46,
+                        height: 46,
+                        child: Icon(
+                          icon,
+                          color: isDark
+                              ? AppColors.textDim
+                              : AppColors.lightTextSub,
+                          size: 22,
+                        ),
+                      ),
+                    const SizedBox(height: 3),
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: isActive
+                            ? FontWeight.w700
+                            : FontWeight.w400,
+                        color: isActive
+                            ? AppColors.cyan
+                            : isDark
+                            ? AppColors.textDim
+                            : AppColors.lightTextSub,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
         ),
       ),
     );
