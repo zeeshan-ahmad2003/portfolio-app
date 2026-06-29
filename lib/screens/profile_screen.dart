@@ -1,11 +1,20 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart'; // ← Week 4 added
 import '../main.dart';
 import '../services/storage_service.dart';
+import '../services/api_service.dart'; // ← Week 4 added
 import 'edit_profile_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final bool isDarkMode;
-  const ProfileScreen({super.key, required this.isDarkMode});
+  final VoidCallback onLogout; // ← Week 4 added
+
+  const ProfileScreen({
+    super.key,
+    required this.isDarkMode,
+    required this.onLogout,
+  });
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -14,28 +23,141 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   Map<String, String> _profile = {};
   bool _isLoading = true;
+  String? _apiProfileImage; // ← Week 4: image from API
+  bool _uploadingImage = false; // ← Week 4: upload loading state
 
   @override
   void initState() {
     super.initState();
     _loadProfile();
+    _loadApiProfile(); // ← Week 4: also fetch from API
   }
 
   Future<void> _loadProfile() async {
     final data = await StorageService.loadProfile();
-    if (mounted) {
+    if (mounted)
       setState(() {
         _profile = data;
         _isLoading = false;
       });
+  }
+
+  // ── Week 4: load profile from API (for image + live data) ──
+  Future<void> _loadApiProfile() async {
+    final res = await ApiService.getProfile();
+    if (mounted && res.success && res.data['profileImage'] != null) {
+      setState(() => _apiProfileImage = res.data['profileImage']);
     }
+  }
+
+  // ── Week 4: image picker + upload ──────────────────────────
+  Future<void> _pickAndUploadImage() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+      maxWidth: 800,
+    );
+    if (picked == null || !mounted) return;
+
+    setState(() => _uploadingImage = true);
+
+    final res = await ApiService.uploadProfileImage(File(picked.path));
+
+    if (!mounted) return;
+    setState(() => _uploadingImage = false);
+
+    if (res.success) {
+      setState(() => _apiProfileImage = res.data['imageUrl']);
+      _showSnack('Profile photo updated!', success: true);
+    } else {
+      _showSnack(res.error ?? 'Upload failed');
+    }
+  }
+
+  // ── Week 4: logout ─────────────────────────────────────────
+  Future<void> _handleLogout() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: widget.isDarkMode
+            ? AppColors.cardDark
+            : AppColors.lightCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          'Sign Out',
+          style: TextStyle(
+            color: widget.isDarkMode
+                ? AppColors.textWhite
+                : AppColors.lightText,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Text(
+          'Are you sure you want to sign out?',
+          style: TextStyle(
+            color: widget.isDarkMode
+                ? AppColors.textGrey
+                : AppColors.lightTextSub,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: AppColors.textGrey),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: const Text(
+              'Sign Out',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true || !mounted) return;
+    await ApiService.logout();
+    widget.onLogout();
+  }
+
+  void _showSnack(String msg, {bool success = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(
+              success ? Icons.check_circle_rounded : Icons.error_rounded,
+              color: Colors.white,
+              size: 16,
+            ),
+            const SizedBox(width: 8),
+            Text(msg),
+          ],
+        ),
+        backgroundColor: success ? AppColors.success : Colors.red,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = widget.isDarkMode;
     final bg = isDark ? AppColors.bgDark : AppColors.lightBg;
-    final textPrimary = isDark ? AppColors.textWhite : AppColors.lightText;
     final textSub = isDark ? AppColors.textGrey : AppColors.lightTextSub;
 
     if (_isLoading) {
@@ -50,13 +172,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       backgroundColor: bg,
       body: RefreshIndicator(
-        onRefresh: _loadProfile,
+        onRefresh: () async {
+          await _loadProfile();
+          await _loadApiProfile();
+        },
         color: AppColors.cyan,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           child: Column(
             children: [
-              // ── Header ──
+              // ── Header — same as Week 3 + image picker + logout ──
               Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
@@ -71,84 +196,166 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 padding: const EdgeInsets.fromLTRB(24, 56, 24, 28),
                 child: Column(
                   children: [
-                    // Edit button top right
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: GestureDetector(
-                        onTap: () async {
-                          await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => EditProfileScreen(
-                                isDarkMode: isDark,
-                                currentProfile: _profile,
+                    // Edit + Logout row
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        // ── Week 4: Logout button ──────────────
+                        GestureDetector(
+                          onTap: _handleLogout,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 7,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.red.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: Colors.red.withOpacity(0.4),
                               ),
                             ),
-                          );
-                          _loadProfile();
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 7,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.3),
-                            ),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.edit_rounded,
-                                color: Colors.white,
-                                size: 14,
-                              ),
-                              SizedBox(width: 6),
-                              Text(
-                                'Edit Profile',
-                                style: TextStyle(
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.logout_rounded,
                                   color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
+                                  size: 14,
                                 ),
-                              ),
-                            ],
+                                SizedBox(width: 6),
+                                Text(
+                                  'Logout',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    // Photo
-                    Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        Container(
-                          width: 96,
-                          height: 96,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 3),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.cyan.withOpacity(0.4),
-                                blurRadius: 20,
+                        // Edit Profile button — unchanged
+                        GestureDetector(
+                          onTap: () async {
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => EditProfileScreen(
+                                  isDarkMode: isDark,
+                                  currentProfile: _profile,
+                                ),
                               ),
-                            ],
-                          ),
-                          child: ClipOval(
-                            child: Image.asset(
-                              'assets/images/profile.jpeg',
-                              fit: BoxFit.cover,
+                            );
+                            _loadProfile();
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 7,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.3),
+                              ),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.edit_rounded,
+                                  color: Colors.white,
+                                  size: 14,
+                                ),
+                                SizedBox(width: 6),
+                                Text(
+                                  'Edit Profile',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
                       ],
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // ── Week 4: Photo with camera tap ──────────
+                    GestureDetector(
+                      onTap: _pickAndUploadImage,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Container(
+                            width: 96,
+                            height: 96,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 3),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.cyan.withOpacity(0.4),
+                                  blurRadius: 20,
+                                ),
+                              ],
+                            ),
+                            child: ClipOval(
+                              child: _uploadingImage
+                                  ? Container(
+                                      color: AppColors.cardDark,
+                                      child: const Center(
+                                        child: CircularProgressIndicator(
+                                          color: AppColors.cyan,
+                                          strokeWidth: 2,
+                                        ),
+                                      ),
+                                    )
+                                  : _apiProfileImage != null
+                                  ? Image.network(
+                                      _apiProfileImage!,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) => Image.asset(
+                                        'assets/images/profile.jpeg',
+                                        fit: BoxFit.cover,
+                                      ),
+                                    )
+                                  : Image.asset(
+                                      'assets/images/profile.jpeg',
+                                      fit: BoxFit.cover,
+                                    ),
+                            ),
+                          ),
+                          // Camera badge
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: AppColors.cyan,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 2,
+                                ),
+                              ),
+                              child: const Icon(
+                                Icons.camera_alt_rounded,
+                                color: Colors.white,
+                                size: 12,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
 
                     const SizedBox(height: 12),
@@ -161,9 +368,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-
                     const SizedBox(height: 6),
-
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12,
@@ -187,7 +392,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
               const SizedBox(height: 16),
 
-              // ── About ──
+              // ── Everything below is IDENTICAL to Week 3 ──────
               _ProfileCard(
                 isDark: isDark,
                 title: 'About Me',
@@ -200,7 +405,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
 
-              // ── Education ──
               _ProfileCard(
                 isDark: isDark,
                 title: 'Education',
@@ -234,7 +438,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
 
-              // ── Experience ──
               _ProfileCard(
                 isDark: isDark,
                 title: 'Experience',
@@ -265,7 +468,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
 
-              // ── Skills ──
               _ProfileCard(
                 isDark: isDark,
                 title: 'Skills',
@@ -300,7 +502,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
 
-              // ── Contact Info ──
               _ProfileCard(
                 isDark: isDark,
                 title: 'Contact Info',
@@ -340,7 +541,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 }
 
-// ── Reusable Widgets ──
+// ── All reusable widgets below are IDENTICAL to Week 3 ─────────
 
 class _ProfileCard extends StatelessWidget {
   final bool isDark;

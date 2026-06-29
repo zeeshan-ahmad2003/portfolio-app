@@ -1,8 +1,16 @@
 import 'package:flutter/material.dart';
 import '../main.dart';
+import '../services/api_service.dart'; // ← Week 4 added
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  final bool isDarkMode;
+  final VoidCallback onLoginSuccess; // ← Week 4 added
+
+  const LoginScreen({
+    super.key,
+    required this.isDarkMode,
+    required this.onLoginSuccess,
+  });
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -13,6 +21,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _isLoading = false;
+  String? _errorMessage; // ← Week 4 added
 
   @override
   void dispose() {
@@ -21,23 +30,43 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _handleLogin() {
-    setState(() => _isLoading = true);
-    Future.delayed(const Duration(seconds: 1), () {
-      if (mounted) setState(() => _isLoading = false);
+  // ── Week 4: real API login ──────────────────────────────────
+  Future<void> _handleLogin() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
+      setState(() => _errorMessage = 'Please enter email and password');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
     });
+
+    final res = await ApiService.login(email, password);
+
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+
+    if (res.success) {
+      widget.onLoginSuccess();
+    } else {
+      setState(() => _errorMessage = res.error);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isDark = widget.isDarkMode;
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.bgDark : const Color(0xFFF0F4FF),
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // ── Top Banner ──
+            // ── Top Banner — unchanged from Week 3 ──
             Container(
               width: double.infinity,
               height: 300,
@@ -52,7 +81,6 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               child: Stack(
                 children: [
-                  // Glow circles background
                   Positioned(
                     top: -40,
                     right: -40,
@@ -133,7 +161,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 children: [
                   const SizedBox(height: 10),
 
-                  // Email label
                   Text(
                     'Email',
                     style: TextStyle(
@@ -143,8 +170,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
-
-                  // Email field
                   TextField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
@@ -178,7 +203,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   const SizedBox(height: 20),
 
-                  // Password label
                   Text(
                     'Password',
                     style: TextStyle(
@@ -188,8 +212,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
-
-                  // Password field
                   TextField(
                     controller: _passwordController,
                     obscureText: _obscurePassword,
@@ -232,9 +254,44 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
 
+                  // ── Week 4: Error message ────────────────────
+                  if (_errorMessage != null) ...[
+                    const SizedBox(height: 14),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.red.withOpacity(0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.error_outline_rounded,
+                            color: Colors.red,
+                            size: 16,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _errorMessage!,
+                              style: const TextStyle(
+                                color: Colors.red,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
                   const SizedBox(height: 30),
 
-                  // Login Button
+                  // ── Login Button ──
                   Container(
                     width: double.infinity,
                     height: 52,
@@ -261,7 +318,14 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                       child: _isLoading
-                          ? const CircularProgressIndicator(color: Colors.white)
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
                           : const Text(
                               'Sign In',
                               style: TextStyle(
@@ -275,7 +339,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   const SizedBox(height: 24),
 
-                  // Footer
                   Center(
                     child: Text(
                       'Zeeshan Ahmad © 2026',

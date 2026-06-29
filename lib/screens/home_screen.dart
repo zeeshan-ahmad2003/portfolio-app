@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../main.dart';
 import '../services/storage_service.dart';
+import '../services/api_service.dart';
 
 class HomeScreen extends StatefulWidget {
   final bool isDarkMode;
@@ -23,6 +24,9 @@ class _HomeScreenState extends State<HomeScreen>
   late Animation<double> _fadeAnim;
   late Animation<Offset> _slideAnim;
   Map<String, String> _profile = {};
+  bool _apiLoaded = false;
+  String? _apiProfileImage; // ← profile image from API
+  List<dynamic> _apiSkills = []; // ← skills from API
 
   @override
   void initState() {
@@ -37,12 +41,35 @@ class _HomeScreenState extends State<HomeScreen>
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
     _controller.forward();
-    _loadProfile();
+    _loadLocalProfile();
+    _loadApiData();
   }
 
-  Future<void> _loadProfile() async {
+  Future<void> _loadLocalProfile() async {
     final data = await StorageService.loadProfile();
     if (mounted) setState(() => _profile = data);
+  }
+
+  Future<void> _loadApiData() async {
+    // Load profile
+    final profileRes = await ApiService.getProfile();
+    if (mounted && profileRes.success) {
+      final data = profileRes.data;
+      setState(() {
+        if (data['name'] != null) _profile['name'] = data['name'];
+        if (data['bio'] != null) _profile['bio'] = data['bio'];
+        if (data['email'] != null) _profile['email'] = data['email'];
+        if (data['phone'] != null) _profile['phone'] = data['phone'];
+        if (data['profileImage'] != null)
+          _apiProfileImage = data['profileImage'];
+        _apiLoaded = true;
+      });
+    }
+    // Load skills
+    final skillsRes = await ApiService.getSkills();
+    if (mounted && skillsRes.success) {
+      setState(() => _apiSkills = skillsRes.data ?? []);
+    }
   }
 
   @override
@@ -86,6 +113,22 @@ class _HomeScreenState extends State<HomeScreen>
           ),
         ),
         actions: [
+          if (_apiLoaded)
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: Tooltip(
+                message: 'Live API connected',
+                child: Container(
+                  margin: const EdgeInsets.symmetric(vertical: 14),
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(
+                    color: AppColors.success,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            ),
           IconButton(
             icon: Icon(
               isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
@@ -96,7 +139,10 @@ class _HomeScreenState extends State<HomeScreen>
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: _loadProfile,
+        onRefresh: () async {
+          await _loadLocalProfile();
+          await _loadApiData();
+        },
         color: AppColors.cyan,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -112,7 +158,7 @@ class _HomeScreenState extends State<HomeScreen>
                     position: _slideAnim,
                     child: Column(
                       children: [
-                        // ── Glowing Profile Photo ──
+                        // ── Profile Photo ──
                         Stack(
                           alignment: Alignment.center,
                           children: [
@@ -143,15 +189,28 @@ class _HomeScreenState extends State<HomeScreen>
                                 color: bg,
                               ),
                             ),
+                            // ── API image or local asset ──
                             ClipOval(
-                              child: Image.asset(
-                                'assets/images/profile.jpeg',
-                                width: 118,
-                                height: 118,
-                                fit: BoxFit.cover,
-                              ),
+                              child: _apiProfileImage != null
+                                  ? Image.network(
+                                      _apiProfileImage!,
+                                      width: 118,
+                                      height: 118,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) => Image.asset(
+                                        'assets/images/profile.jpeg',
+                                        width: 118,
+                                        height: 118,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    )
+                                  : Image.asset(
+                                      'assets/images/profile.jpeg',
+                                      width: 118,
+                                      height: 118,
+                                      fit: BoxFit.cover,
+                                    ),
                             ),
-                            // Online green dot
                             Positioned(
                               bottom: 6,
                               right: 6,
@@ -176,7 +235,6 @@ class _HomeScreenState extends State<HomeScreen>
 
                         const SizedBox(height: 18),
 
-                        // Name from storage
                         ShaderMask(
                           shaderCallback: (bounds) => const LinearGradient(
                             colors: [AppColors.cyan, AppColors.purple],
@@ -289,7 +347,7 @@ class _HomeScreenState extends State<HomeScreen>
 
               const SizedBox(height: 12),
 
-              // ── Top Skills ──
+              // ── Top Skills — from API or hardcoded fallback ──
               _GlowCard(
                 isDark: isDark,
                 child: Column(
@@ -297,30 +355,45 @@ class _HomeScreenState extends State<HomeScreen>
                   children: [
                     _SectionTitle(title: 'Top Skills', isDark: isDark),
                     const SizedBox(height: 14),
-                    _SkillBar(
-                      skill: 'Python',
-                      level: 0.85,
-                      isDark: isDark,
-                      textPrimary: textPrimary,
-                    ),
-                    _SkillBar(
-                      skill: 'Flutter & Dart',
-                      level: 0.70,
-                      isDark: isDark,
-                      textPrimary: textPrimary,
-                    ),
-                    _SkillBar(
-                      skill: 'Machine Learning',
-                      level: 0.75,
-                      isDark: isDark,
-                      textPrimary: textPrimary,
-                    ),
-                    _SkillBar(
-                      skill: 'HTML / CSS',
-                      level: 0.80,
-                      isDark: isDark,
-                      textPrimary: textPrimary,
-                    ),
+                    if (_apiSkills.isNotEmpty)
+                      // Show first 4 skills from API
+                      ..._apiSkills
+                          .take(4)
+                          .map(
+                            (s) => _SkillBar(
+                              skill: s['skill'] ?? '',
+                              level: (s['level'] as num).toDouble(),
+                              isDark: isDark,
+                              textPrimary: textPrimary,
+                            ),
+                          )
+                    else ...[
+                      // Fallback hardcoded
+                      _SkillBar(
+                        skill: 'Python',
+                        level: 0.85,
+                        isDark: isDark,
+                        textPrimary: textPrimary,
+                      ),
+                      _SkillBar(
+                        skill: 'Flutter & Dart',
+                        level: 0.70,
+                        isDark: isDark,
+                        textPrimary: textPrimary,
+                      ),
+                      _SkillBar(
+                        skill: 'Machine Learning',
+                        level: 0.75,
+                        isDark: isDark,
+                        textPrimary: textPrimary,
+                      ),
+                      _SkillBar(
+                        skill: 'HTML / CSS',
+                        level: 0.80,
+                        isDark: isDark,
+                        textPrimary: textPrimary,
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -379,7 +452,7 @@ class _HomeScreenState extends State<HomeScreen>
   }
 }
 
-// ── Reusable Widgets ──
+// ── All widgets unchanged from Week 3 ─────────────────────────
 
 class _StatItem extends StatelessWidget {
   final String value, label;

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../main.dart';
 import '../services/storage_service.dart';
+import '../services/api_service.dart'; // ← Week 4 added
 
 class ContactScreen extends StatefulWidget {
   const ContactScreen({super.key});
@@ -17,19 +18,31 @@ class _ContactScreenState extends State<ContactScreen> {
   @override
   void initState() {
     super.initState();
-    _loadProfile();
+    _loadLocalProfile();
+    _loadApiContact(); // ← Week 4: also load from API
   }
 
-  Future<void> _loadProfile() async {
+  Future<void> _loadLocalProfile() async {
     final data = await StorageService.loadProfile();
     if (mounted) setState(() => _profile = data);
   }
 
+  // ── Week 4: pull contact from API ─────────────────────────
+  Future<void> _loadApiContact() async {
+    final res = await ApiService.getContact();
+    if (!mounted || !res.success) return;
+    final data = res.data as Map<String, dynamic>;
+    setState(() {
+      if (data['email'] != null) _profile['email'] = data['email'];
+      if (data['phone'] != null) _profile['phone'] = data['phone'];
+      if (data['location'] != null) _profile['location'] = data['location'];
+    });
+  }
+
   Future<void> _launchURL(String url) async {
     final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
+    if (await canLaunchUrl(uri))
       await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
   }
 
   Future<void> _launchEmail() async {
@@ -69,6 +82,7 @@ class _ContactScreenState extends State<ContactScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // ── Everything below is IDENTICAL to Week 3 ──────────────
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = isDark ? AppColors.bgDark : AppColors.lightBg;
     final cardBg = isDark ? AppColors.cardDark : AppColors.lightCard;
@@ -77,6 +91,8 @@ class _ContactScreenState extends State<ContactScreen> {
 
     final email = _profile['email'] ?? 'z.ahmad2003x@gmail.com';
     final phone = _profile['phone'] ?? '0310-9803584';
+    final location =
+        _profile['location'] ?? 'Charsadda, Khyber Pakhtunkhwa, Pakistan';
 
     return Scaffold(
       backgroundColor: bg,
@@ -98,13 +114,16 @@ class _ContactScreenState extends State<ContactScreen> {
         ),
       ),
       body: RefreshIndicator(
-        onRefresh: _loadProfile,
+        onRefresh: () async {
+          await _loadLocalProfile();
+          await _loadApiContact();
+        },
         color: AppColors.cyan,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           child: Column(
             children: [
-              // ── Header Banner ──
+              // Header Banner
               Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
@@ -165,7 +184,7 @@ class _ContactScreenState extends State<ContactScreen> {
 
               const SizedBox(height: 20),
 
-              // ── Contact Cards ──
+              // Contact Cards
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Column(
@@ -195,14 +214,10 @@ class _ContactScreenState extends State<ContactScreen> {
                       icon: Icons.location_on_rounded,
                       color: const Color(0xFFF97316),
                       title: 'Location',
-                      subtitle: 'Charsadda, Khyber Pakhtunkhwa, Pakistan',
-                      onTap: () => _launchURL(
-                        'https://maps.google.com/?q=Charsadda,Khyber+Pakhtunkhwa,Pakistan',
-                      ),
-                      onLongPress: () => _copyToClipboard(
-                        'Charsadda, KPK, Pakistan',
-                        'Location',
-                      ),
+                      subtitle: location,
+                      onTap: () =>
+                          _launchURL('https://maps.google.com/?q=$location'),
+                      onLongPress: () => _copyToClipboard(location, 'Location'),
                     ),
                   ],
                 ),
@@ -210,7 +225,7 @@ class _ContactScreenState extends State<ContactScreen> {
 
               const SizedBox(height: 20),
 
-              // ── Social Links ──
+              // Social Links
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 16),
                 padding: const EdgeInsets.all(18),
@@ -294,7 +309,7 @@ class _ContactScreenState extends State<ContactScreen> {
 
               const SizedBox(height: 20),
 
-              // ── Availability Badge ──
+              // Availability Badge
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 16),
                 padding: const EdgeInsets.all(16),
@@ -313,7 +328,6 @@ class _ContactScreenState extends State<ContactScreen> {
                 ),
                 child: Row(
                   children: [
-                    // Pulsing dot
                     Container(
                       width: 10,
                       height: 10,
@@ -352,7 +366,7 @@ class _ContactScreenState extends State<ContactScreen> {
   }
 }
 
-// ── Reusable Widgets ──
+// ── All widgets IDENTICAL to Week 3 ───────────────────────────
 
 class _ContactCard extends StatelessWidget {
   final bool isDark;

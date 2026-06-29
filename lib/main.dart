@@ -4,7 +4,9 @@ import 'screens/home_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/projects_screen.dart';
 import 'screens/contact_screen.dart';
+import 'screens/login_screen.dart'; // ← Week 4 added
 import 'services/storage_service.dart';
+import 'services/api_service.dart'; // ← Week 4 added
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,6 +20,7 @@ void main() async {
   runApp(MyApp(initialDarkMode: savedDark));
 }
 
+// ── AppColors — unchanged from Week 3 ──
 class AppColors {
   static const bgDark = Color(0xFF0A0E1A);
   static const cardDark = Color(0xFF0F1629);
@@ -82,19 +85,119 @@ class _MyAppState extends State<MyApp> {
         ),
       ),
       themeMode: _isDarkMode ? ThemeMode.dark : ThemeMode.light,
-      home: MainScreen(isDarkMode: _isDarkMode, onToggleTheme: _toggleTheme),
+      // ── Week 4: AuthWrapper replaces direct MainScreen ──
+      home: AuthWrapper(isDarkMode: _isDarkMode, onToggleTheme: _toggleTheme),
     );
   }
 }
 
+// ── Week 4: Auth Wrapper ─────────────────────────────────────
+// Checks if logged in → shows MainScreen, else shows LoginScreen
+class AuthWrapper extends StatefulWidget {
+  final bool isDarkMode;
+  final VoidCallback onToggleTheme;
+
+  const AuthWrapper({
+    super.key,
+    required this.isDarkMode,
+    required this.onToggleTheme,
+  });
+
+  @override
+  State<AuthWrapper> createState() => _AuthWrapperState();
+}
+
+class _AuthWrapperState extends State<AuthWrapper> {
+  bool _checking = true;
+  bool _isLoggedIn = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAuth();
+  }
+
+  Future<void> _checkAuth() async {
+    final loggedIn = await ApiService.isLoggedIn();
+    if (mounted) {
+      setState(() {
+        _isLoggedIn = loggedIn;
+        _checking = false;
+      });
+    }
+  }
+
+  void _onLoginSuccess() => setState(() => _isLoggedIn = true);
+  void _onLogout() => setState(() => _isLoggedIn = false);
+
+  @override
+  Widget build(BuildContext context) {
+    if (_checking) {
+      // Splash while checking token
+      return Scaffold(
+        backgroundColor: AppColors.bgDark,
+        body: const Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ShaderMask(
+                shaderCallback: _gradientShader,
+                child: Text(
+                  '_ZA✨',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 32,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1,
+                  ),
+                ),
+              ),
+              SizedBox(height: 24),
+              SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  color: AppColors.cyan,
+                  strokeWidth: 2,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (!_isLoggedIn) {
+      return LoginScreen(
+        isDarkMode: widget.isDarkMode,
+        onLoginSuccess: _onLoginSuccess,
+      );
+    }
+
+    return MainScreen(
+      isDarkMode: widget.isDarkMode,
+      onToggleTheme: widget.onToggleTheme,
+      onLogout: _onLogout,
+    );
+  }
+}
+
+// Shader helper (static so it can be used in const context)
+Shader _gradientShader(Rect bounds) => const LinearGradient(
+  colors: [AppColors.cyan, AppColors.purple],
+).createShader(bounds);
+
+// ── MainScreen — same as Week 3 + logout passed down ────────
 class MainScreen extends StatefulWidget {
   final bool isDarkMode;
   final VoidCallback onToggleTheme;
+  final VoidCallback onLogout; // ← Week 4 added
 
   const MainScreen({
     super.key,
     required this.isDarkMode,
     required this.onToggleTheme,
+    required this.onLogout,
   });
 
   @override
@@ -110,7 +213,10 @@ class _MainScreenState extends State<MainScreen> {
 
     final screens = [
       HomeScreen(isDarkMode: isDark, onToggleTheme: widget.onToggleTheme),
-      ProfileScreen(isDarkMode: isDark),
+      ProfileScreen(
+        isDarkMode: isDark,
+        onLogout: widget.onLogout,
+      ), // ← logout added
       const ProjectsScreen(),
       const ContactScreen(),
     ];
@@ -134,7 +240,7 @@ class _MainScreenState extends State<MainScreen> {
   }
 }
 
-// ── Premium Floating Nav Bar ──
+// ── Premium Floating Nav Bar — unchanged from Week 3 ─────────
 class _PremiumNavBar extends StatelessWidget {
   final int selectedIndex;
   final bool isDark;
@@ -199,7 +305,6 @@ class _PremiumNavBar extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Active — raised glowing bubble
                     if (isActive)
                       Container(
                         width: 46,
