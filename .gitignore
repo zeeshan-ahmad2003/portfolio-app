@@ -43,3 +43,5 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+portfolio_backend/node_modules/
+portfolio_backend/uploads/
