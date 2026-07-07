@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../main.dart';
-import '../services/api_service.dart'; // ← Week 4 added
+import '../services/api_service.dart';
 
-// ── Project model — unchanged from Week 3 ────────────────────
 class Project {
   final String title;
   final String description;
@@ -29,7 +28,6 @@ class Project {
     this.imagePath,
   });
 
-  // ── Week 4: map project title to local image asset ───────
   static String? _getImagePath(String title) {
     if (title.contains('YouTube')) return 'assets/images/yt_summarizer.png';
     if (title.contains('PDF')) return 'assets/images/pdf_compressor.png';
@@ -37,9 +35,7 @@ class Project {
     return null;
   }
 
-  // ── Week 4: build Project from API JSON ──────────────────
   factory Project.fromApi(Map<String, dynamic> json) {
-    // Map category to colors + icon (keeps your existing design)
     final cat = json['category'] as String? ?? '';
     List<Color> colors;
     IconData icon;
@@ -60,7 +56,6 @@ class Project {
         colors = [AppColors.cyan, AppColors.purple];
         icon = Icons.work_rounded;
     }
-
     return Project(
       title: json['title'] ?? '',
       description: json['description'] ?? '',
@@ -87,14 +82,12 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
   String _selectedCategory = 'All';
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
-
   final List<String> _categories = ['All', 'Flutter', 'Python', 'AI/ML'];
 
-  // ── Week 4: projects come from API ─────────────────────────
   List<Project> _projects = [];
   bool _loadingApi = true;
+  bool _isOffline = false; // ← Week 5
 
-  // Fallback local list (shown if API fails)
   final List<Project> _localProjects = [
     Project(
       title: 'YouTube Summarizer',
@@ -162,7 +155,6 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
     _loadFromApi();
   }
 
-  // ── Week 4: fetch from API, fallback to local ───────────────
   Future<void> _loadFromApi() async {
     setState(() => _loadingApi = true);
     final res = await ApiService.getProjects(
@@ -177,12 +169,13 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
       setState(() {
         _projects = list;
         _loadingApi = false;
+        _isOffline = res.fromCache; // ← Week 5
       });
     } else {
-      // API failed — use local data with client-side filter
       setState(() {
         _projects = _localProjects;
         _loadingApi = false;
+        _isOffline = false;
       });
     }
   }
@@ -194,8 +187,6 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
   }
 
   List<Project> get _filteredProjects {
-    // If API is handling filter, just show _projects as-is.
-    // If on local fallback, filter client-side.
     return _projects.where((p) {
       final matchesCat =
           _selectedCategory == 'All' || p.category == _selectedCategory;
@@ -210,7 +201,6 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
 
   void _onSearchChanged(String val) {
     setState(() => _searchQuery = val);
-    // Debounce API call
     Future.delayed(const Duration(milliseconds: 400), () {
       if (_searchQuery == val && mounted) _loadFromApi();
     });
@@ -249,7 +239,36 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
       ),
       body: Column(
         children: [
-          // ── Search Bar — unchanged from Week 3 ──
+          // ── Week 5: Offline Banner ──────────────────────────
+          if (_isOffline)
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.orange.withOpacity(0.3)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.wifi_off_rounded, color: Colors.orange, size: 16),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Offline — showing cached projects. Pull to refresh.',
+                      style: TextStyle(
+                        color: Colors.orange,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+          // ── Search Bar ──────────────────────────────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
             child: Container(
@@ -308,7 +327,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
 
           const SizedBox(height: 12),
 
-          // ── Category Filter — unchanged from Week 3 ──
+          // ── Category Filter ─────────────────────────────────
           SizedBox(
             height: 38,
             child: ListView.builder(
@@ -380,7 +399,6 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                // ── Week 4: API loading indicator ─────────────
                 if (_loadingApi) ...[
                   const SizedBox(width: 8),
                   const SizedBox(
@@ -398,7 +416,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
 
           const SizedBox(height: 8),
 
-          // ── List — unchanged from Week 3 ──
+          // ── Projects List ───────────────────────────────────
           Expanded(
             child: _filteredProjects.isEmpty
                 ? Center(
@@ -444,8 +462,6 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
     );
   }
 }
-
-// ── All widgets below IDENTICAL to Week 3 ─────────────────────
 
 class _ProjectCard extends StatelessWidget {
   final Project project;
@@ -734,7 +750,6 @@ class _ProjectCard extends StatelessWidget {
   }
 }
 
-// ── Project Detail Screen — unchanged from Week 3 ─────────────
 class ProjectDetailScreen extends StatelessWidget {
   final Project project;
   final bool isDark;

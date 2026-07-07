@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../main.dart';
 import '../services/storage_service.dart';
-import '../services/api_service.dart'; // ← Week 4 added
+import '../services/api_service.dart';
 
 class ContactScreen extends StatefulWidget {
   const ContactScreen({super.key});
@@ -14,12 +14,13 @@ class ContactScreen extends StatefulWidget {
 
 class _ContactScreenState extends State<ContactScreen> {
   Map<String, String> _profile = {};
+  bool _isOffline = false; // ← Week 5
 
   @override
   void initState() {
     super.initState();
     _loadLocalProfile();
-    _loadApiContact(); // ← Week 4: also load from API
+    _loadApiContact();
   }
 
   Future<void> _loadLocalProfile() async {
@@ -27,7 +28,6 @@ class _ContactScreenState extends State<ContactScreen> {
     if (mounted) setState(() => _profile = data);
   }
 
-  // ── Week 4: pull contact from API ─────────────────────────
   Future<void> _loadApiContact() async {
     final res = await ApiService.getContact();
     if (!mounted || !res.success) return;
@@ -36,6 +36,7 @@ class _ContactScreenState extends State<ContactScreen> {
       if (data['email'] != null) _profile['email'] = data['email'];
       if (data['phone'] != null) _profile['phone'] = data['phone'];
       if (data['location'] != null) _profile['location'] = data['location'];
+      _isOffline = res.fromCache; // ← Week 5
     });
   }
 
@@ -82,7 +83,6 @@ class _ContactScreenState extends State<ContactScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // ── Everything below is IDENTICAL to Week 3 ──────────────
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = isDark ? AppColors.bgDark : AppColors.lightBg;
     final cardBg = isDark ? AppColors.cardDark : AppColors.lightCard;
@@ -123,7 +123,43 @@ class _ContactScreenState extends State<ContactScreen> {
           physics: const AlwaysScrollableScrollPhysics(),
           child: Column(
             children: [
-              // Header Banner
+              // ── Week 5: Offline Banner ──────────────────────
+              if (_isOffline)
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(
+                        Icons.wifi_off_rounded,
+                        color: Colors.orange,
+                        size: 16,
+                      ),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Offline — showing cached contact info. Pull to refresh.',
+                          style: TextStyle(
+                            color: Colors.orange,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+              // ── Header Banner ───────────────────────────────
               Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
@@ -184,7 +220,7 @@ class _ContactScreenState extends State<ContactScreen> {
 
               const SizedBox(height: 20),
 
-              // Contact Cards
+              // ── Contact Cards ───────────────────────────────
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Column(
@@ -225,7 +261,7 @@ class _ContactScreenState extends State<ContactScreen> {
 
               const SizedBox(height: 20),
 
-              // Social Links
+              // ── Social Links ────────────────────────────────
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 16),
                 padding: const EdgeInsets.all(18),
@@ -309,7 +345,7 @@ class _ContactScreenState extends State<ContactScreen> {
 
               const SizedBox(height: 20),
 
-              // Availability Badge
+              // ── Availability Badge ──────────────────────────
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 16),
                 padding: const EdgeInsets.all(16),
@@ -365,8 +401,6 @@ class _ContactScreenState extends State<ContactScreen> {
     );
   }
 }
-
-// ── All widgets IDENTICAL to Week 3 ───────────────────────────
 
 class _ContactCard extends StatelessWidget {
   final bool isDark;

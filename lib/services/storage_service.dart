@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
+// ── Week 5: Offline Cache + Profile Storage ──────────────────
 class StorageService {
   static const _themeKey = 'isDarkMode';
   static const _nameKey = 'userName';
@@ -7,7 +9,13 @@ class StorageService {
   static const _emailKey = 'userEmail';
   static const _phoneKey = 'userPhone';
 
-  // ── Theme ──
+  // ── Cache keys (Week 5) ──────────────────────────────────
+  static const _cacheProfile = 'cache_profile';
+  static const _cacheProjects = 'cache_projects';
+  static const _cacheSkills = 'cache_skills';
+  static const _cacheContact = 'cache_contact';
+
+  // ── Theme ────────────────────────────────────────────────
   static Future<void> saveTheme(bool isDark) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_themeKey, isDark);
@@ -15,10 +23,10 @@ class StorageService {
 
   static Future<bool> loadTheme() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_themeKey) ?? true; // default dark
+    return prefs.getBool(_themeKey) ?? true;
   }
 
-  // ── Profile ──
+  // ── Profile (local edits) ────────────────────────────────
   static Future<void> saveProfile({
     required String name,
     required String bio,
@@ -44,5 +52,44 @@ class StorageService {
       'email': prefs.getString(_emailKey) ?? 'z.ahmad2003x@gmail.com',
       'phone': prefs.getString(_phoneKey) ?? '0310-9803584',
     };
+  }
+
+  // ── Offline Cache helpers (Week 5) ───────────────────────
+  static Future<void> _save(String key, dynamic data) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(key, jsonEncode(data));
+  }
+
+  static Future<dynamic> _load(String key) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(key);
+    if (raw == null) return null;
+    return jsonDecode(raw);
+  }
+
+  // Profile cache
+  static Future<void> cacheProfile(dynamic data) => _save(_cacheProfile, data);
+  static Future<dynamic> getCachedProfile() => _load(_cacheProfile);
+
+  // Projects cache
+  static Future<void> cacheProjects(dynamic data) =>
+      _save(_cacheProjects, data);
+  static Future<dynamic> getCachedProjects() => _load(_cacheProjects);
+
+  // Skills cache
+  static Future<void> cacheSkills(dynamic data) => _save(_cacheSkills, data);
+  static Future<dynamic> getCachedSkills() => _load(_cacheSkills);
+
+  // Contact cache
+  static Future<void> cacheContact(dynamic data) => _save(_cacheContact, data);
+  static Future<dynamic> getCachedContact() => _load(_cacheContact);
+
+  // Clear all API cache (called on logout)
+  static Future<void> clearCache() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_cacheProfile);
+    await prefs.remove(_cacheProjects);
+    await prefs.remove(_cacheSkills);
+    await prefs.remove(_cacheContact);
   }
 }

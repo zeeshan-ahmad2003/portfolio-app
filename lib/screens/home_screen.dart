@@ -23,10 +23,12 @@ class _HomeScreenState extends State<HomeScreen>
   late AnimationController _controller;
   late Animation<double> _fadeAnim;
   late Animation<Offset> _slideAnim;
+
   Map<String, String> _profile = {};
   bool _apiLoaded = false;
-  String? _apiProfileImage; // ← profile image from API
-  List<dynamic> _apiSkills = []; // ← skills from API
+  bool _isOffline = false; // ← Week 5
+  String? _apiProfileImage;
+  List<dynamic> _apiSkills = [];
 
   @override
   void initState() {
@@ -51,10 +53,12 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _loadApiData() async {
-    // Load profile
+    // ── Profile ──
     final profileRes = await ApiService.getProfile();
     if (mounted && profileRes.success) {
       final data = profileRes.data;
+      // ← Week 5: detect if data came from cache
+      final fromCache = profileRes.fromCache;
       setState(() {
         if (data['name'] != null) _profile['name'] = data['name'];
         if (data['bio'] != null) _profile['bio'] = data['bio'];
@@ -63,9 +67,11 @@ class _HomeScreenState extends State<HomeScreen>
         if (data['profileImage'] != null)
           _apiProfileImage = data['profileImage'];
         _apiLoaded = true;
+        _isOffline = fromCache;
       });
     }
-    // Load skills
+
+    // ── Skills ──
     final skillsRes = await ApiService.getSkills();
     if (mounted && skillsRes.success) {
       setState(() => _apiSkills = skillsRes.data ?? []);
@@ -113,7 +119,46 @@ class _HomeScreenState extends State<HomeScreen>
           ),
         ),
         actions: [
-          if (_apiLoaded)
+          // ← Week 5: offline badge replaces / supplements API dot
+          if (_isOffline)
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: Tooltip(
+                message: 'Showing cached data',
+                child: Container(
+                  margin: const EdgeInsets.symmetric(vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.orange.withOpacity(0.4)),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.wifi_off_rounded,
+                        color: Colors.orange,
+                        size: 11,
+                      ),
+                      SizedBox(width: 4),
+                      Text(
+                        'Offline',
+                        style: TextStyle(
+                          color: Colors.orange,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            )
+          else if (_apiLoaded)
             Padding(
               padding: const EdgeInsets.only(right: 4),
               child: Tooltip(
@@ -148,6 +193,42 @@ class _HomeScreenState extends State<HomeScreen>
           physics: const AlwaysScrollableScrollPhysics(),
           child: Column(
             children: [
+              // ── Week 5: Offline Banner ──────────────────────
+              if (_isOffline)
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(
+                        Icons.wifi_off_rounded,
+                        color: Colors.orange,
+                        size: 16,
+                      ),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'You\'re offline — showing last saved data. Pull to refresh.',
+                          style: TextStyle(
+                            color: Colors.orange,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
               // ── Hero Section ──
               Container(
                 width: double.infinity,
@@ -158,7 +239,6 @@ class _HomeScreenState extends State<HomeScreen>
                     position: _slideAnim,
                     child: Column(
                       children: [
-                        // ── Profile Photo ──
                         Stack(
                           alignment: Alignment.center,
                           children: [
@@ -189,7 +269,6 @@ class _HomeScreenState extends State<HomeScreen>
                                 color: bg,
                               ),
                             ),
-                            // ── API image or local asset ──
                             ClipOval(
                               child: _apiProfileImage != null
                                   ? Image.network(
@@ -218,12 +297,18 @@ class _HomeScreenState extends State<HomeScreen>
                                 width: 16,
                                 height: 16,
                                 decoration: BoxDecoration(
-                                  color: AppColors.success,
+                                  color: _isOffline
+                                      ? Colors.orange
+                                      : AppColors.success,
                                   shape: BoxShape.circle,
                                   border: Border.all(color: bg, width: 2),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: AppColors.success.withOpacity(0.5),
+                                      color:
+                                          (_isOffline
+                                                  ? Colors.orange
+                                                  : AppColors.success)
+                                              .withOpacity(0.5),
                                       blurRadius: 6,
                                     ),
                                   ],
@@ -347,7 +432,7 @@ class _HomeScreenState extends State<HomeScreen>
 
               const SizedBox(height: 12),
 
-              // ── Top Skills — from API or hardcoded fallback ──
+              // ── Top Skills ──
               _GlowCard(
                 isDark: isDark,
                 child: Column(
@@ -356,7 +441,6 @@ class _HomeScreenState extends State<HomeScreen>
                     _SectionTitle(title: 'Top Skills', isDark: isDark),
                     const SizedBox(height: 14),
                     if (_apiSkills.isNotEmpty)
-                      // Show first 4 skills from API
                       ..._apiSkills
                           .take(4)
                           .map(
@@ -368,7 +452,6 @@ class _HomeScreenState extends State<HomeScreen>
                             ),
                           )
                     else ...[
-                      // Fallback hardcoded
                       _SkillBar(
                         skill: 'Python',
                         level: 0.85,
@@ -452,7 +535,7 @@ class _HomeScreenState extends State<HomeScreen>
   }
 }
 
-// ── All widgets unchanged from Week 3 ─────────────────────────
+// ── Widgets (unchanged from Week 4) ───────────────────────────
 
 class _StatItem extends StatelessWidget {
   final String value, label;

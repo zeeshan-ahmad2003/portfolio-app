@@ -2,17 +2,13 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'storage_service.dart';
 
 class ApiService {
-  // Android emulator uses 10.0.2.2 to reach your Mac's localhost
-  // iOS simulator uses localhost directly
   static const String _base = 'http://10.0.2.2:3000';
-  // If testing on iOS simulator, change to: 'http://localhost:3000'
-
   static const Duration _timeout = Duration(seconds: 10);
   static const String _tokenKey = 'auth_token';
 
-  // ── Token helpers ──────────────────────────────────────────
   static Future<void> saveToken(String token) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_tokenKey, token);
@@ -33,7 +29,6 @@ class ApiService {
     return token != null && token.isNotEmpty;
   }
 
-  // ── Headers ────────────────────────────────────────────────
   static Future<Map<String, String>> _authHeaders() async {
     final token = await getToken();
     return {
@@ -44,7 +39,7 @@ class ApiService {
 
   static const _publicHeaders = {'Content-Type': 'application/json'};
 
-  // ── Auth ───────────────────────────────────────────────────
+  // ── Login ────────────────────────────────────────────────
   static Future<ApiResponse> login(String email, String password) async {
     try {
       final res = await http
@@ -67,6 +62,7 @@ class ApiService {
     }
   }
 
+  // ── Logout ───────────────────────────────────────────────
   static Future<void> logout() async {
     try {
       final headers = await _authHeaders();
@@ -75,17 +71,22 @@ class ApiService {
           .timeout(_timeout);
     } catch (_) {}
     await clearToken();
+    await StorageService.clearCache();
   }
 
-  // ── Profile ────────────────────────────────────────────────
+  // ── Profile ──────────────────────────────────────────────
   static Future<ApiResponse> getProfile() async {
     try {
       final res = await http
           .get(Uri.parse('$_base/api/profile'), headers: _publicHeaders)
           .timeout(_timeout);
       final body = jsonDecode(res.body);
-      return ApiResponse.ok(body['data']);
+      final data = body['data'];
+      await StorageService.cacheProfile(data);
+      return ApiResponse.ok(data);
     } catch (_) {
+      final cached = await StorageService.getCachedProfile();
+      if (cached != null) return ApiResponse.cached(cached); // ← fromCache
       return ApiResponse.fail('Failed to load profile');
     }
   }
@@ -115,9 +116,7 @@ class ApiService {
         'PUT',
         Uri.parse('$_base/api/profile/image'),
       );
-      if (token != null) {
-        request.headers['Authorization'] = 'Bearer $token';
-      }
+      if (token != null) request.headers['Authorization'] = 'Bearer $token';
       request.files.add(
         await http.MultipartFile.fromPath('image', imageFile.path),
       );
@@ -131,7 +130,7 @@ class ApiService {
     }
   }
 
-  // ── Projects ───────────────────────────────────────────────
+  // ── Projects ─────────────────────────────────────────────
   static Future<ApiResponse> getProjects({
     String? category,
     String? search,
@@ -147,50 +146,78 @@ class ApiService {
           .get(uri, headers: _publicHeaders)
           .timeout(_timeout);
       final body = jsonDecode(res.body);
-      return ApiResponse.ok(body['data']);
+      final data = body['data'];
+      if (category == null || category == 'All') {
+        if (search == null || search.isEmpty) {
+          await StorageService.cacheProjects(data);
+        }
+      }
+      return ApiResponse.ok(data);
     } catch (_) {
+      final cached = await StorageService.getCachedProjects();
+      if (cached != null) return ApiResponse.cached(cached); // ← fromCache
       return ApiResponse.fail('Failed to load projects');
     }
   }
 
-  // ── Skills ─────────────────────────────────────────────────
+  // ── Skills ───────────────────────────────────────────────
   static Future<ApiResponse> getSkills() async {
     try {
       final res = await http
           .get(Uri.parse('$_base/api/skills'), headers: _publicHeaders)
           .timeout(_timeout);
       final body = jsonDecode(res.body);
-      return ApiResponse.ok(body['data']);
+      final data = body['data'];
+      await StorageService.cacheSkills(data);
+      return ApiResponse.ok(data);
     } catch (_) {
+      final cached = await StorageService.getCachedSkills();
+      if (cached != null) return ApiResponse.cached(cached); // ← fromCache
       return ApiResponse.fail('Failed to load skills');
     }
   }
 
-  // ── Contact ────────────────────────────────────────────────
+  // ── Contact ──────────────────────────────────────────────
   static Future<ApiResponse> getContact() async {
     try {
       final res = await http
           .get(Uri.parse('$_base/api/contact'), headers: _publicHeaders)
           .timeout(_timeout);
       final body = jsonDecode(res.body);
-      return ApiResponse.ok(body['data']);
+      final data = body['data'];
+      await StorageService.cacheContact(data);
+      return ApiResponse.ok(data);
     } catch (_) {
+      final cached = await StorageService.getCachedContact();
+      if (cached != null) return ApiResponse.cached(cached); // ← fromCache
       return ApiResponse.fail('Failed to load contact');
     }
   }
 }
 
-// ── Simple response wrapper ────────────────────────────────
+// ── ApiResponse — Week 5: added fromCache flag ───────────────
 class ApiResponse {
   final bool success;
   final dynamic data;
   final String? error;
+  final bool fromCache; // ← Week 5: true = data came from local cache
 
-  ApiResponse._({required this.success, this.data, this.error});
+  ApiResponse._({
+    required this.success,
+    this.data,
+    this.error,
+    this.fromCache = false,
+  });
 
+  // Live API success
   factory ApiResponse.ok(dynamic data) =>
-      ApiResponse._(success: true, data: data);
+      ApiResponse._(success: true, data: data, fromCache: false);
 
+  // Offline cache success
+  factory ApiResponse.cached(dynamic data) =>
+      ApiResponse._(success: true, data: data, fromCache: true);
+
+  // Failure
   factory ApiResponse.fail(String msg) =>
       ApiResponse._(success: false, error: msg);
 }
