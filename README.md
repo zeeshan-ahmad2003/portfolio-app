@@ -1,60 +1,72 @@
----
-
-## 🔌 API Endpoints
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| POST | `/api/login` | No | Login → JWT token |
-| POST | `/api/logout` | Yes | Invalidate token |
-| GET | `/api/profile` | No | Get profile data |
-| PUT | `/api/profile` | Yes | Update profile |
-| PUT | `/api/profile/image` | Yes | Upload photo |
-| GET | `/api/skills` | No | Get skills list |
-| GET | `/api/projects` | No | Get projects (search + filter) |
-| GET | `/api/contact` | No | Get contact info |
-
----
-
-## 🎨 Design System
-
-| Token | Value |
-|-------|-------|
-| Background Dark | `#0A0E1A` |
-| Card Dark | `#0F1629` |
-| Cyan (Primary) | `#00D4FF` |
-| Purple (Accent) | `#7B2FFF` |
-| Success Green | `#00C896` |
-| Text White | `#FFFFFF` |
-| Text Grey | `#A0AEC0` |
-
----
-
-## 📅 Development Timeline
-
-| Week | Features |
-|------|----------|
-| Week 1 | Basic Flutter app structure |
-| Week 2 | Dark navy + cyan theme, 4 screens |
-| Week 3 | Premium navbar, search/filter, local storage |
-| Week 4 | Node.js backend, JWT auth, image upload |
-| Week 5 | Offline support, cache system, UX polish |
-
----
-
-## 👨‍💻 Developer
-
-**Zeeshan Ahmad**
-- 🎓 BS Computer Science — Abdul Wali Khan University Mardan (CGPA 3.25)
-- 💼 App Development Intern @ Codiora Software House
-- 🌐 [Portfolio](https://zeeshan-portfolio-orcin-eight.vercel.app)
-- 💻 [GitHub](https://github.com/zeeshan-ahmad2003)
-- 🔗 [LinkedIn](https://www.linkedin.com/in/zeeshan-ahmad-5b8a813aa/)
-- 📧 z.ahmad2003x@gmail.com
-
----
+# _ZA✨ Portfolio App
 
 <div align="center">
 
-Made with ❤️ using Flutter | Codiora Internship Week 5
+![Flutter](https://img.shields.io/badge/Flutter-02569B?style=for-the-badge&logo=flutter&logoColor=white)
+![Dart](https://img.shields.io/badge/Dart-0175C2?style=for-the-badge&logo=dart&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)
+![Express](https://img.shields.io/badge/Express-000000?style=for-the-badge&logo=express&logoColor=white)
+![JWT](https://img.shields.io/badge/JWT-000000?style=for-the-badge&logo=jsonwebtokens&logoColor=white)
+
+A production-ready **Flutter mobile portfolio app** built during the Codiora Software House internship. Features JWT authentication, live REST API integration, offline caching, and a premium dark navy + cyan design system.
 
 </div>
+
+## 📱 Screenshots
+
+| Login | Home | Projects | Contact |
+|-------|------|----------|---------|
+| JWT auth with error handling | Profile, skills, social links | Search, filter by category | Email, phone, social media |
+
+## ✨ Features
+
+### 🔐 Authentication
+- JWT login/logout with token stored in SharedPreferences
+- Auto-login on app relaunch
+- Secure session management with token blacklist on backend
+
+### 🏠 Home Screen
+- Animated hero section with profile photo
+- Live skill bars fetched from API
+- GitHub, LinkedIn, Portfolio links
+- Offline banner when showing cached data
+
+### 👤 Profile Screen
+- View and edit profile (name, bio, email, phone)
+- Pick and upload profile photo from gallery
+- Education, experience, and skills sections
+- Logout with confirmation dialog
+
+### 🗂️ Projects Screen
+- Projects fetched from REST API
+- Real-time search by title or technology
+- Filter by category (Flutter, Python, AI/ML)
+- Offline fallback with cached data banner
+
+### 📬 Contact Screen
+- Live contact data from API
+- Tap to call/email, long-press to copy
+- Social media links (GitHub, LinkedIn, Portfolio)
+- Availability badge
+
+### 📡 Offline Support
+- All API data cached locally via SharedPreferences
+- App works fully without internet using last saved data
+- Offline banner shown on Home, Projects, and Contact screens
+- Cache cleared automatically on logout
+
+## 🛠️ Technologies Used
+
+| Layer | Technology |
+|-------|------------|
+| Mobile App | Flutter 3.x, Dart |
+| State Management | setState + StatefulWidget |
+| Local Storage | shared_preferences |
+| HTTP Client | http package |
+| Image Picker | image_picker |
+| URL Launcher | url_launcher |
+| Backend | Node.js, Express.js |
+| Auth | JWT, bcrypt |
+| File Upload | Multer |
+
+## 📁 Project Structure
