@@ -1,5 +1,5 @@
 name: portfolio_app
-description: "A new Flutter project."
+description: "A cross-platform Flutter portfolio app with JWT auth, offline support, and a Node.js backend."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
