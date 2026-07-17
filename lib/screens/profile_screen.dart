@@ -1,14 +1,14 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart'; // ← Week 4 added
+import 'package:image_picker/image_picker.dart';
 import '../main.dart';
 import '../services/storage_service.dart';
-import '../services/api_service.dart'; // ← Week 4 added
+import '../services/api_service.dart';
 import 'edit_profile_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final bool isDarkMode;
-  final VoidCallback onLogout; // ← Week 4 added
+  final VoidCallback onLogout;
 
   const ProfileScreen({
     super.key,
@@ -21,48 +21,83 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  static const int _maxImageBytes = 8 * 1024 * 1024;
+
   Map<String, String> _profile = {};
   bool _isLoading = true;
-  String? _apiProfileImage; // ← Week 4: image from API
-  bool _uploadingImage = false; // ← Week 4: upload loading state
+  String? _apiProfileImage;
+  bool _uploadingImage = false;
 
   @override
   void initState() {
     super.initState();
     _loadProfile();
-    _loadApiProfile(); // ← Week 4: also fetch from API
+    _loadApiProfile();
   }
 
   Future<void> _loadProfile() async {
     final data = await StorageService.loadProfile();
-    if (mounted)
+    if (mounted) {
       setState(() {
         _profile = data;
         _isLoading = false;
       });
-  }
-
-  // ── Week 4: load profile from API (for image + live data) ──
-  Future<void> _loadApiProfile() async {
-    final res = await ApiService.getProfile();
-    if (mounted && res.success && res.data['profileImage'] != null) {
-      setState(() => _apiProfileImage = res.data['profileImage']);
     }
   }
 
-  // ── Week 4: image picker + upload ──────────────────────────
+  Future<void> _loadApiProfile() async {
+    final res = await ApiService.getProfile();
+    if (!mounted) return;
+
+    if (res.success) {
+      if (res.data['profileImage'] != null) {
+        setState(() => _apiProfileImage = res.data['profileImage']);
+      }
+    } else {
+      _showSnack(res.error ?? 'Could not refresh latest profile data.');
+    }
+  }
+
   Future<void> _pickAndUploadImage() async {
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 80,
-      maxWidth: 800,
-    );
+    XFile? picked;
+    try {
+      final picker = ImagePicker();
+      picked = await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 80,
+        maxWidth: 800,
+      );
+    } catch (e) {
+      if (mounted) {
+        _showSnack('Could not open your photo gallery. Check app permissions.');
+      }
+      return;
+    }
+
     if (picked == null || !mounted) return;
+
+    final file = File(picked.path);
+    final exists = await file.exists();
+    if (!exists) {
+      if (mounted) _showSnack('Selected image could not be found.');
+      return;
+    }
+
+    final sizeBytes = await file.length();
+    if (sizeBytes > _maxImageBytes) {
+      if (mounted) {
+        _showSnack('Image is too large. Please choose a photo under 8MB.');
+      }
+      return;
+    }
+    if (sizeBytes == 0) {
+      if (mounted) _showSnack('Selected image appears to be empty.');
+      return;
+    }
 
     setState(() => _uploadingImage = true);
 
-    final res = await ApiService.uploadProfileImage(File(picked.path));
+    final res = await ApiService.uploadProfileImage(file);
 
     if (!mounted) return;
     setState(() => _uploadingImage = false);
@@ -75,7 +110,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // ── Week 4: logout ─────────────────────────────────────────
   Future<void> _handleLogout() async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -143,7 +177,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               size: 16,
             ),
             const SizedBox(width: 8),
-            Text(msg),
+            Expanded(child: Text(msg)),
           ],
         ),
         backgroundColor: success ? AppColors.success : Colors.red,
@@ -181,7 +215,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           physics: const AlwaysScrollableScrollPhysics(),
           child: Column(
             children: [
-              // ── Header — same as Week 3 + image picker + logout ──
               Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
@@ -196,11 +229,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 padding: const EdgeInsets.fromLTRB(24, 56, 24, 28),
                 child: Column(
                   children: [
-                    // Edit + Logout row
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        // ── Week 4: Logout button ──────────────
                         GestureDetector(
                           onTap: _handleLogout,
                           child: Container(
@@ -209,10 +240,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               vertical: 7,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.red.withOpacity(0.2),
+                              color: Colors.red.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(
-                                color: Colors.red.withOpacity(0.4),
+                                color: Colors.red.withValues(alpha: 0.4),
                               ),
                             ),
                             child: const Row(
@@ -236,7 +267,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ),
                         ),
-                        // Edit Profile button — unchanged
                         GestureDetector(
                           onTap: () async {
                             await Navigator.push(
@@ -256,10 +286,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               vertical: 7,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.15),
+                              color: Colors.white.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(
-                                color: Colors.white.withOpacity(0.3),
+                                color: Colors.white.withValues(alpha: 0.3),
                               ),
                             ),
                             child: const Row(
@@ -288,9 +318,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                     const SizedBox(height: 12),
 
-                    // ── Week 4: Photo with camera tap ──────────
                     GestureDetector(
-                      onTap: _pickAndUploadImage,
+                      onTap: _uploadingImage ? null : _pickAndUploadImage,
                       child: Stack(
                         alignment: Alignment.center,
                         children: [
@@ -302,7 +331,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               border: Border.all(color: Colors.white, width: 3),
                               boxShadow: [
                                 BoxShadow(
-                                  color: AppColors.cyan.withOpacity(0.4),
+                                  color: AppColors.cyan.withValues(alpha: 0.4),
                                   blurRadius: 20,
                                 ),
                               ],
@@ -322,10 +351,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   ? Image.network(
                                       _apiProfileImage!,
                                       fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) => Image.asset(
-                                        'assets/images/profile.jpeg',
-                                        fit: BoxFit.cover,
-                                      ),
+                                      errorBuilder:
+                                          (context, error, stackTrace) =>
+                                              Image.asset(
+                                                'assets/images/profile.jpeg',
+                                                fit: BoxFit.cover,
+                                              ),
                                     )
                                   : Image.asset(
                                       'assets/images/profile.jpeg',
@@ -333,7 +364,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     ),
                             ),
                           ),
-                          // Camera badge
                           Positioned(
                             bottom: 0,
                             right: 0,
@@ -375,10 +405,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         vertical: 5,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.15),
+                        color: Colors.white.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: Colors.white.withOpacity(0.3),
+                          color: Colors.white.withValues(alpha: 0.3),
                         ),
                       ),
                       child: const Text(
@@ -392,7 +422,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
               const SizedBox(height: 16),
 
-              // ── Everything below is IDENTICAL to Week 3 ──────
               _ProfileCard(
                 isDark: isDark,
                 title: 'About Me',
@@ -541,8 +570,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 }
 
-// ── All reusable widgets below are IDENTICAL to Week 3 ─────────
-
 class _ProfileCard extends StatelessWidget {
   final bool isDark;
   final String title;
@@ -564,10 +591,13 @@ class _ProfileCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: isDark ? AppColors.cardDark : AppColors.lightCard,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.cyan.withOpacity(0.12), width: 1),
+        border: Border.all(
+          color: AppColors.cyan.withValues(alpha: 0.12),
+          width: 1,
+        ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.cyan.withOpacity(isDark ? 0.06 : 0.04),
+            color: AppColors.cyan.withValues(alpha: isDark ? 0.06 : 0.04),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -624,7 +654,7 @@ class _EduItem extends StatelessWidget {
             color: color,
             shape: BoxShape.circle,
             boxShadow: [
-              BoxShadow(color: color.withOpacity(0.4), blurRadius: 6),
+              BoxShadow(color: color.withValues(alpha: 0.4), blurRadius: 6),
             ],
           ),
         ),
@@ -689,7 +719,7 @@ class _ExpItem extends StatelessWidget {
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: AppColors.purple.withOpacity(0.4),
+                color: AppColors.purple.withValues(alpha: 0.4),
                 blurRadius: 6,
               ),
             ],
@@ -806,9 +836,9 @@ class _ContactRow extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
+            color: color.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: color.withOpacity(0.2)),
+            border: Border.all(color: color.withValues(alpha: 0.2)),
           ),
           child: Icon(icon, color: color, size: 16),
         ),

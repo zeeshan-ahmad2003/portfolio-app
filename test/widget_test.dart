@@ -1,9 +1,8 @@
-// This is a basic Flutter widget test.
+// Basic smoke test for the portfolio app.
 //
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
+// Verifies the app builds without throwing and shows the initial
+// splash/auth-check screen (the "_ZA✨" branding) before either the
+// login screen or main screen takes over.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,20 +10,18 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:portfolio_app/main.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('App builds and shows splash screen without crashing', (
+    WidgetTester tester,
+  ) async {
+    // Build our app with a fixed initial theme and trigger a frame.
+    await tester.pumpWidget(const MyApp(initialDarkMode: true));
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    // AuthWrapper starts in its "_checking" state, showing the splash
+    // screen with the app's branding while it checks login status.
+    expect(find.text('_ZA✨'), findsOneWidget);
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // The splash screen should show a loading indicator while
+    // ApiService.isLoggedIn() resolves.
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
   });
 }

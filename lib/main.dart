@@ -4,9 +4,9 @@ import 'screens/home_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/projects_screen.dart';
 import 'screens/contact_screen.dart';
-import 'screens/login_screen.dart'; // ← Week 4 added
+import 'screens/login_screen.dart';
 import 'services/storage_service.dart';
-import 'services/api_service.dart'; // ← Week 4 added
+import 'services/api_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,7 +20,7 @@ void main() async {
   runApp(MyApp(initialDarkMode: savedDark));
 }
 
-// ── AppColors — unchanged from Week 3 ──
+// ── AppColors ──
 class AppColors {
   static const bgDark = Color(0xFF0A0E1A);
   static const cardDark = Color(0xFF0F1629);
@@ -85,14 +85,12 @@ class _MyAppState extends State<MyApp> {
         ),
       ),
       themeMode: _isDarkMode ? ThemeMode.dark : ThemeMode.light,
-      // ── Week 4: AuthWrapper replaces direct MainScreen ──
       home: AuthWrapper(isDarkMode: _isDarkMode, onToggleTheme: _toggleTheme),
     );
   }
 }
 
-// ── Week 4: Auth Wrapper ─────────────────────────────────────
-// Checks if logged in → shows MainScreen, else shows LoginScreen
+// ── Auth Wrapper ─────────────────────────────────────
 class AuthWrapper extends StatefulWidget {
   final bool isDarkMode;
   final VoidCallback onToggleTheme;
@@ -133,7 +131,6 @@ class _AuthWrapperState extends State<AuthWrapper> {
   @override
   Widget build(BuildContext context) {
     if (_checking) {
-      // Splash while checking token
       return Scaffold(
         backgroundColor: AppColors.bgDark,
         body: const Center(
@@ -182,16 +179,15 @@ class _AuthWrapperState extends State<AuthWrapper> {
   }
 }
 
-// Shader helper (static so it can be used in const context)
 Shader _gradientShader(Rect bounds) => const LinearGradient(
   colors: [AppColors.cyan, AppColors.purple],
 ).createShader(bounds);
 
-// ── MainScreen — same as Week 3 + logout passed down ────────
+// ── MainScreen ────────
 class MainScreen extends StatefulWidget {
   final bool isDarkMode;
   final VoidCallback onToggleTheme;
-  final VoidCallback onLogout; // ← Week 4 added
+  final VoidCallback onLogout;
 
   const MainScreen({
     super.key,
@@ -213,10 +209,7 @@ class _MainScreenState extends State<MainScreen> {
 
     final screens = [
       HomeScreen(isDarkMode: isDark, onToggleTheme: widget.onToggleTheme),
-      ProfileScreen(
-        isDarkMode: isDark,
-        onLogout: widget.onLogout,
-      ), // ← logout added
+      ProfileScreen(isDarkMode: isDark, onLogout: widget.onLogout),
       const ProjectsScreen(),
       const ContactScreen(),
     ];
@@ -240,7 +233,7 @@ class _MainScreenState extends State<MainScreen> {
   }
 }
 
-// ── Premium Floating Nav Bar — unchanged from Week 3 ─────────
+// ── Premium Floating Nav Bar ─────────
 class _PremiumNavBar extends StatelessWidget {
   final int selectedIndex;
   final bool isDark;
@@ -271,15 +264,15 @@ class _PremiumNavBar extends StatelessWidget {
           borderRadius: BorderRadius.circular(32),
           border: Border.all(
             color: isDark
-                ? AppColors.cyan.withOpacity(0.2)
-                : AppColors.cyan.withOpacity(0.15),
+                ? AppColors.cyan.withValues(alpha: 0.2)
+                : AppColors.cyan.withValues(alpha: 0.15),
             width: 1,
           ),
           boxShadow: [
             BoxShadow(
               color: isDark
-                  ? AppColors.cyan.withOpacity(0.08)
-                  : Colors.black.withOpacity(0.08),
+                  ? AppColors.cyan.withValues(alpha: 0.08)
+                  : Colors.black.withValues(alpha: 0.08),
               blurRadius: 24,
               offset: const Offset(0, 4),
             ),
@@ -318,7 +311,7 @@ class _PremiumNavBar extends StatelessWidget {
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: AppColors.cyan.withOpacity(0.4),
+                              color: AppColors.cyan.withValues(alpha: 0.4),
                               blurRadius: 16,
                               spreadRadius: 1,
                             ),

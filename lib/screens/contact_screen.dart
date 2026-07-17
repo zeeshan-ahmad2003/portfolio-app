@@ -14,7 +14,7 @@ class ContactScreen extends StatefulWidget {
 
 class _ContactScreenState extends State<ContactScreen> {
   Map<String, String> _profile = {};
-  bool _isOffline = false; // ← Week 5
+  bool _isOffline = false;
 
   @override
   void initState() {
@@ -30,32 +30,74 @@ class _ContactScreenState extends State<ContactScreen> {
 
   Future<void> _loadApiContact() async {
     final res = await ApiService.getContact();
-    if (!mounted || !res.success) return;
+    if (!mounted) return;
+
+    if (!res.success) {
+      _showSnack(res.error ?? 'Could not refresh contact info.');
+      return;
+    }
+
     final data = res.data as Map<String, dynamic>;
     setState(() {
       if (data['email'] != null) _profile['email'] = data['email'];
       if (data['phone'] != null) _profile['phone'] = data['phone'];
       if (data['location'] != null) _profile['location'] = data['location'];
-      _isOffline = res.fromCache; // ← Week 5
+      _isOffline = res.fromCache;
     });
   }
 
+  void _showSnack(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
+  }
+
+  Future<void> _launch(
+    Uri uri, {
+    String failMessage = 'Could not open this link.',
+  }) async {
+    try {
+      final canOpen = await canLaunchUrl(uri);
+      if (canOpen) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        _showSnack(failMessage);
+      }
+    } catch (_) {
+      _showSnack(failMessage);
+    }
+  }
+
   Future<void> _launchURL(String url) async {
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri))
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    final uri = Uri.tryParse(url);
+    if (uri == null) {
+      _showSnack('Invalid link.');
+      return;
+    }
+    await _launch(uri);
   }
 
   Future<void> _launchEmail() async {
     final email = _profile['email'] ?? 'z.ahmad2003x@gmail.com';
-    final uri = Uri.parse('mailto:$email?subject=Hello Zeeshan');
-    if (await canLaunchUrl(uri)) await launchUrl(uri);
+    final uri = Uri(
+      scheme: 'mailto',
+      path: email,
+      query: 'subject=Hello Zeeshan',
+    );
+    await _launch(uri, failMessage: 'No email app found.');
   }
 
   Future<void> _launchPhone() async {
     final phone = _profile['phone'] ?? '0310-9803584';
-    final uri = Uri.parse('tel:$phone');
-    if (await canLaunchUrl(uri)) await launchUrl(uri);
+    final uri = Uri(scheme: 'tel', path: phone);
+    await _launch(uri, failMessage: 'No phone app found.');
+  }
+
+  Future<void> _launchMap(String location) async {
+    final encoded = Uri.encodeComponent(location);
+    final uri = Uri.parse('https://maps.google.com/?q=$encoded');
+    await _launch(uri, failMessage: 'Could not open maps.');
   }
 
   void _copyToClipboard(String text, String label) {
@@ -87,7 +129,6 @@ class _ContactScreenState extends State<ContactScreen> {
     final bg = isDark ? AppColors.bgDark : AppColors.lightBg;
     final cardBg = isDark ? AppColors.cardDark : AppColors.lightCard;
     final textPrimary = isDark ? AppColors.textWhite : AppColors.lightText;
-    final textSub = isDark ? AppColors.textGrey : AppColors.lightTextSub;
 
     final email = _profile['email'] ?? 'z.ahmad2003x@gmail.com';
     final phone = _profile['phone'] ?? '0310-9803584';
@@ -123,7 +164,6 @@ class _ContactScreenState extends State<ContactScreen> {
           physics: const AlwaysScrollableScrollPhysics(),
           child: Column(
             children: [
-              // ── Week 5: Offline Banner ──────────────────────
               if (_isOffline)
                 Container(
                   width: double.infinity,
@@ -133,9 +173,11 @@ class _ContactScreenState extends State<ContactScreen> {
                     vertical: 10,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.orange.withOpacity(0.1),
+                    color: Colors.orange.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                    border: Border.all(
+                      color: Colors.orange.withValues(alpha: 0.3),
+                    ),
                   ),
                   child: const Row(
                     children: [
@@ -159,7 +201,6 @@ class _ContactScreenState extends State<ContactScreen> {
                   ),
                 ),
 
-              // ── Header Banner ───────────────────────────────
               Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
@@ -180,15 +221,15 @@ class _ContactScreenState extends State<ContactScreen> {
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.15),
+                        color: Colors.white.withValues(alpha: 0.15),
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: AppColors.cyan.withOpacity(0.5),
+                          color: AppColors.cyan.withValues(alpha: 0.5),
                           width: 2,
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: AppColors.cyan.withOpacity(0.3),
+                            color: AppColors.cyan.withValues(alpha: 0.3),
                             blurRadius: 20,
                           ),
                         ],
@@ -220,7 +261,6 @@ class _ContactScreenState extends State<ContactScreen> {
 
               const SizedBox(height: 20),
 
-              // ── Contact Cards ───────────────────────────────
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Column(
@@ -251,8 +291,7 @@ class _ContactScreenState extends State<ContactScreen> {
                       color: const Color(0xFFF97316),
                       title: 'Location',
                       subtitle: location,
-                      onTap: () =>
-                          _launchURL('https://maps.google.com/?q=$location'),
+                      onTap: () => _launchMap(location),
                       onLongPress: () => _copyToClipboard(location, 'Location'),
                     ),
                   ],
@@ -261,7 +300,6 @@ class _ContactScreenState extends State<ContactScreen> {
 
               const SizedBox(height: 20),
 
-              // ── Social Links ────────────────────────────────
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 16),
                 padding: const EdgeInsets.all(18),
@@ -269,12 +307,14 @@ class _ContactScreenState extends State<ContactScreen> {
                   color: cardBg,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: AppColors.cyan.withOpacity(0.12),
+                    color: AppColors.cyan.withValues(alpha: 0.12),
                     width: 1,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.cyan.withOpacity(isDark ? 0.06 : 0.04),
+                      color: AppColors.cyan.withValues(
+                        alpha: isDark ? 0.06 : 0.04,
+                      ),
                       blurRadius: 12,
                       offset: const Offset(0, 4),
                     ),
@@ -312,7 +352,7 @@ class _ContactScreenState extends State<ContactScreen> {
                           _launchURL('https://github.com/zeeshan-ahmad2003'),
                     ),
                     Divider(
-                      color: AppColors.cyan.withOpacity(0.12),
+                      color: AppColors.cyan.withValues(alpha: 0.12),
                       height: 24,
                     ),
                     _SocialRow(
@@ -326,7 +366,7 @@ class _ContactScreenState extends State<ContactScreen> {
                       ),
                     ),
                     Divider(
-                      color: AppColors.cyan.withOpacity(0.12),
+                      color: AppColors.cyan.withValues(alpha: 0.12),
                       height: 24,
                     ),
                     _SocialRow(
@@ -345,20 +385,19 @@ class _ContactScreenState extends State<ContactScreen> {
 
               const SizedBox(height: 20),
 
-              // ── Availability Badge ──────────────────────────
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 16),
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      AppColors.cyan.withOpacity(isDark ? 0.12 : 0.07),
-                      AppColors.purple.withOpacity(isDark ? 0.12 : 0.07),
+                      AppColors.cyan.withValues(alpha: isDark ? 0.12 : 0.07),
+                      AppColors.purple.withValues(alpha: isDark ? 0.12 : 0.07),
                     ],
                   ),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: AppColors.cyan.withOpacity(0.2),
+                    color: AppColors.cyan.withValues(alpha: 0.2),
                     width: 1,
                   ),
                 ),
@@ -372,7 +411,7 @@ class _ContactScreenState extends State<ContactScreen> {
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: AppColors.success.withOpacity(0.5),
+                            color: AppColors.success.withValues(alpha: 0.5),
                             blurRadius: 6,
                           ),
                         ],
@@ -431,10 +470,10 @@ class _ContactCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: isDark ? AppColors.cardDark : AppColors.lightCard,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: color.withOpacity(0.2), width: 1),
+          border: Border.all(color: color.withValues(alpha: 0.2), width: 1),
           boxShadow: [
             BoxShadow(
-              color: color.withOpacity(isDark ? 0.08 : 0.05),
+              color: color.withValues(alpha: isDark ? 0.08 : 0.05),
               blurRadius: 10,
               offset: const Offset(0, 3),
             ),
@@ -445,9 +484,9 @@ class _ContactCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: color.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: color.withOpacity(0.2)),
+                border: Border.all(color: color.withValues(alpha: 0.2)),
               ),
               child: Icon(icon, color: color, size: 22),
             ),
@@ -482,7 +521,7 @@ class _ContactCard extends StatelessWidget {
                 Icon(
                   Icons.arrow_forward_ios_rounded,
                   size: 12,
-                  color: color.withOpacity(0.5),
+                  color: color.withValues(alpha: 0.5),
                 ),
                 const SizedBox(height: 4),
                 Text(

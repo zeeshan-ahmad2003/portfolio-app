@@ -26,9 +26,13 @@ class _HomeScreenState extends State<HomeScreen>
 
   Map<String, String> _profile = {};
   bool _apiLoaded = false;
-  bool _isOffline = false; // ← Week 5
+  bool _isOffline = false;
   String? _apiProfileImage;
   List<dynamic> _apiSkills = [];
+
+  bool _isInitialLoading = true;
+  bool _hasLoadError = false;
+  String? _loadErrorMessage;
 
   @override
   void initState() {
@@ -44,7 +48,7 @@ class _HomeScreenState extends State<HomeScreen>
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
     _controller.forward();
     _loadLocalProfile();
-    _loadApiData();
+    _loadApiData(isInitial: true);
   }
 
   Future<void> _loadLocalProfile() async {
@@ -52,29 +56,45 @@ class _HomeScreenState extends State<HomeScreen>
     if (mounted) setState(() => _profile = data);
   }
 
-  Future<void> _loadApiData() async {
-    // ── Profile ──
+  Future<void> _loadApiData({bool isInitial = false}) async {
+    bool profileFailed = false;
+    String? profileError;
+
     final profileRes = await ApiService.getProfile();
-    if (mounted && profileRes.success) {
-      final data = profileRes.data;
-      // ← Week 5: detect if data came from cache
-      final fromCache = profileRes.fromCache;
-      setState(() {
-        if (data['name'] != null) _profile['name'] = data['name'];
-        if (data['bio'] != null) _profile['bio'] = data['bio'];
-        if (data['email'] != null) _profile['email'] = data['email'];
-        if (data['phone'] != null) _profile['phone'] = data['phone'];
-        if (data['profileImage'] != null)
-          _apiProfileImage = data['profileImage'];
-        _apiLoaded = true;
-        _isOffline = fromCache;
-      });
+    if (mounted) {
+      if (profileRes.success) {
+        final data = profileRes.data;
+        final fromCache = profileRes.fromCache;
+        setState(() {
+          if (data['name'] != null) _profile['name'] = data['name'];
+          if (data['bio'] != null) _profile['bio'] = data['bio'];
+          if (data['email'] != null) _profile['email'] = data['email'];
+          if (data['phone'] != null) _profile['phone'] = data['phone'];
+          if (data['profileImage'] != null) {
+            _apiProfileImage = data['profileImage'];
+          }
+          _apiLoaded = true;
+          _isOffline = fromCache;
+        });
+      } else {
+        profileFailed = true;
+        profileError = profileRes.error;
+      }
     }
 
-    // ── Skills ──
     final skillsRes = await ApiService.getSkills();
     if (mounted && skillsRes.success) {
       setState(() => _apiSkills = skillsRes.data ?? []);
+    }
+
+    if (mounted) {
+      setState(() {
+        _isInitialLoading = false;
+        _hasLoadError = profileFailed;
+        _loadErrorMessage = profileFailed
+            ? (profileError ?? 'Could not load latest data.')
+            : null;
+      });
     }
   }
 
@@ -119,7 +139,6 @@ class _HomeScreenState extends State<HomeScreen>
           ),
         ),
         actions: [
-          // ← Week 5: offline badge replaces / supplements API dot
           if (_isOffline)
             Padding(
               padding: const EdgeInsets.only(right: 4),
@@ -132,9 +151,11 @@ class _HomeScreenState extends State<HomeScreen>
                     vertical: 3,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.orange.withOpacity(0.15),
+                    color: Colors.orange.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.orange.withOpacity(0.4)),
+                    border: Border.all(
+                      color: Colors.orange.withValues(alpha: 0.4),
+                    ),
                   ),
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
@@ -182,6 +203,16 @@ class _HomeScreenState extends State<HomeScreen>
             onPressed: widget.onToggleTheme,
           ),
         ],
+        bottom: _isInitialLoading
+            ? const PreferredSize(
+                preferredSize: Size.fromHeight(2),
+                child: LinearProgressIndicator(
+                  minHeight: 2,
+                  color: AppColors.cyan,
+                  backgroundColor: Colors.transparent,
+                ),
+              )
+            : null,
       ),
       body: RefreshIndicator(
         onRefresh: () async {
@@ -193,7 +224,6 @@ class _HomeScreenState extends State<HomeScreen>
           physics: const AlwaysScrollableScrollPhysics(),
           child: Column(
             children: [
-              // ── Week 5: Offline Banner ──────────────────────
               if (_isOffline)
                 Container(
                   width: double.infinity,
@@ -203,9 +233,11 @@ class _HomeScreenState extends State<HomeScreen>
                     vertical: 10,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.orange.withOpacity(0.1),
+                    color: Colors.orange.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                    border: Border.all(
+                      color: Colors.orange.withValues(alpha: 0.3),
+                    ),
                   ),
                   child: const Row(
                     children: [
@@ -227,9 +259,59 @@ class _HomeScreenState extends State<HomeScreen>
                       ),
                     ],
                   ),
+                )
+              else if (_hasLoadError)
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.red.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.error_outline_rounded,
+                        color: Colors.red,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          _loadErrorMessage ?? 'Could not load latest data.',
+                          style: const TextStyle(
+                            color: Colors.red,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => _loadApiData(),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          minimumSize: Size.zero,
+                        ),
+                        child: const Text(
+                          'Retry',
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
 
-              // ── Hero Section ──
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.fromLTRB(24, 16, 24, 28),
@@ -254,7 +336,9 @@ class _HomeScreenState extends State<HomeScreen>
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: AppColors.cyan.withOpacity(0.35),
+                                    color: AppColors.cyan.withValues(
+                                      alpha: 0.35,
+                                    ),
                                     blurRadius: 28,
                                     spreadRadius: 4,
                                   ),
@@ -276,12 +360,38 @@ class _HomeScreenState extends State<HomeScreen>
                                       width: 118,
                                       height: 118,
                                       fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) => Image.asset(
-                                        'assets/images/profile.jpeg',
-                                        width: 118,
-                                        height: 118,
-                                        fit: BoxFit.cover,
-                                      ),
+                                      loadingBuilder: (context, child, progress) {
+                                        if (progress == null) return child;
+                                        return SizedBox(
+                                          width: 118,
+                                          height: 118,
+                                          child: Center(
+                                            child: SizedBox(
+                                              width: 24,
+                                              height: 24,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                color: AppColors.cyan,
+                                                value:
+                                                    progress.expectedTotalBytes !=
+                                                        null
+                                                    ? progress.cumulativeBytesLoaded /
+                                                          progress
+                                                              .expectedTotalBytes!
+                                                    : null,
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                      errorBuilder:
+                                          (context, error, stackTrace) =>
+                                              Image.asset(
+                                                'assets/images/profile.jpeg',
+                                                width: 118,
+                                                height: 118,
+                                                fit: BoxFit.cover,
+                                              ),
                                     )
                                   : Image.asset(
                                       'assets/images/profile.jpeg',
@@ -297,7 +407,7 @@ class _HomeScreenState extends State<HomeScreen>
                                 width: 16,
                                 height: 16,
                                 decoration: BoxDecoration(
-                                  color: _isOffline
+                                  color: _isOffline || _hasLoadError
                                       ? Colors.orange
                                       : AppColors.success,
                                   shape: BoxShape.circle,
@@ -305,10 +415,10 @@ class _HomeScreenState extends State<HomeScreen>
                                   boxShadow: [
                                     BoxShadow(
                                       color:
-                                          (_isOffline
+                                          (_isOffline || _hasLoadError
                                                   ? Colors.orange
                                                   : AppColors.success)
-                                              .withOpacity(0.5),
+                                              .withValues(alpha: 0.5),
                                       blurRadius: 6,
                                     ),
                                   ],
@@ -344,10 +454,10 @@ class _HomeScreenState extends State<HomeScreen>
                           ),
                           decoration: BoxDecoration(
                             border: Border.all(
-                              color: AppColors.cyan.withOpacity(0.4),
+                              color: AppColors.cyan.withValues(alpha: 0.4),
                             ),
                             borderRadius: BorderRadius.circular(20),
-                            color: AppColors.cyan.withOpacity(0.08),
+                            color: AppColors.cyan.withValues(alpha: 0.08),
                           ),
                           child: const Text(
                             'Flutter Developer  •  CS Student',
@@ -373,7 +483,6 @@ class _HomeScreenState extends State<HomeScreen>
                 ),
               ),
 
-              // ── Stats Row ──
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 20),
                 padding: const EdgeInsets.symmetric(vertical: 18),
@@ -381,12 +490,14 @@ class _HomeScreenState extends State<HomeScreen>
                   color: cardBg,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: AppColors.cyan.withOpacity(0.12),
+                    color: AppColors.cyan.withValues(alpha: 0.12),
                     width: 1,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.cyan.withOpacity(isDark ? 0.07 : 0.05),
+                      color: AppColors.cyan.withValues(
+                        alpha: isDark ? 0.07 : 0.05,
+                      ),
                       blurRadius: 20,
                       offset: const Offset(0, 4),
                     ),
@@ -396,9 +507,9 @@ class _HomeScreenState extends State<HomeScreen>
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     _StatItem(value: '4+', label: 'Projects', isDark: isDark),
-                    _GlowDivider(),
+                    const _GlowDivider(),
                     _StatItem(value: '3', label: 'Internships', isDark: isDark),
-                    _GlowDivider(),
+                    const _GlowDivider(),
                     _StatItem(value: '8+', label: 'Skills', isDark: isDark),
                   ],
                 ),
@@ -406,7 +517,6 @@ class _HomeScreenState extends State<HomeScreen>
 
               const SizedBox(height: 16),
 
-              // ── About Me ──
               _GlowCard(
                 isDark: isDark,
                 child: Column(
@@ -432,7 +542,6 @@ class _HomeScreenState extends State<HomeScreen>
 
               const SizedBox(height: 12),
 
-              // ── Top Skills ──
               _GlowCard(
                 isDark: isDark,
                 child: Column(
@@ -483,7 +592,6 @@ class _HomeScreenState extends State<HomeScreen>
 
               const SizedBox(height: 12),
 
-              // ── Connect With Me ──
               _GlowCard(
                 isDark: isDark,
                 child: Column(
@@ -535,8 +643,6 @@ class _HomeScreenState extends State<HomeScreen>
   }
 }
 
-// ── Widgets (unchanged from Week 4) ───────────────────────────
-
 class _StatItem extends StatelessWidget {
   final String value, label;
   final bool isDark;
@@ -577,6 +683,8 @@ class _StatItem extends StatelessWidget {
 }
 
 class _GlowDivider extends StatelessWidget {
+  const _GlowDivider();
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -585,9 +693,9 @@ class _GlowDivider extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            AppColors.cyan.withOpacity(0.05),
-            AppColors.cyan.withOpacity(0.3),
-            AppColors.cyan.withOpacity(0.05),
+            AppColors.cyan.withValues(alpha: 0.05),
+            AppColors.cyan.withValues(alpha: 0.3),
+            AppColors.cyan.withValues(alpha: 0.05),
           ],
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
@@ -610,10 +718,13 @@ class _GlowCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: isDark ? AppColors.cardDark : AppColors.lightCard,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.cyan.withOpacity(0.12), width: 1),
+        border: Border.all(
+          color: AppColors.cyan.withValues(alpha: 0.12),
+          width: 1,
+        ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.cyan.withOpacity(isDark ? 0.06 : 0.04),
+            color: AppColors.cyan.withValues(alpha: isDark ? 0.06 : 0.04),
             blurRadius: 16,
             offset: const Offset(0, 4),
           ),
@@ -740,7 +851,7 @@ class _GlowButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: gradientColors.first.withOpacity(0.25),
+              color: gradientColors.first.withValues(alpha: 0.25),
               blurRadius: 10,
               offset: const Offset(0, 3),
             ),

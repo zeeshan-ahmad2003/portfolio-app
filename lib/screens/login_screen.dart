@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import '../main.dart';
-import '../services/api_service.dart'; // ← Week 4 added
+import '../services/api_service.dart';
 
 class LoginScreen extends StatefulWidget {
   final bool isDarkMode;
-  final VoidCallback onLoginSuccess; // ← Week 4 added
+  final VoidCallback onLoginSuccess;
 
   const LoginScreen({
     super.key,
@@ -19,24 +19,41 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _emailFocus = FocusNode();
+  final _passwordFocus = FocusNode();
+
   bool _obscurePassword = true;
   bool _isLoading = false;
-  String? _errorMessage; // ← Week 4 added
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _emailController.addListener(_clearErrorOnEdit);
+    _passwordController.addListener(_clearErrorOnEdit);
+  }
+
+  void _clearErrorOnEdit() {
+    if (_errorMessage != null) setState(() => _errorMessage = null);
+  }
 
   @override
   void dispose() {
+    _emailController.removeListener(_clearErrorOnEdit);
+    _passwordController.removeListener(_clearErrorOnEdit);
     _emailController.dispose();
     _passwordController.dispose();
+    _emailFocus.dispose();
+    _passwordFocus.dispose();
     super.dispose();
   }
 
-  // ── Week 4: real API login ──────────────────────────────────
   Future<void> _handleLogin() async {
     final email = _emailController.text.trim();
-    final password = _passwordController.text.trim();
+    final password = _passwordController.text;
 
     if (email.isEmpty || password.isEmpty) {
-      setState(() => _errorMessage = 'Please enter email and password');
+      setState(() => _errorMessage = 'Please enter email and password.');
       return;
     }
 
@@ -53,7 +70,9 @@ class _LoginScreenState extends State<LoginScreen> {
     if (res.success) {
       widget.onLoginSuccess();
     } else {
-      setState(() => _errorMessage = res.error);
+      setState(
+        () => _errorMessage = res.error ?? 'Login failed. Please try again.',
+      );
     }
   }
 
@@ -66,7 +85,6 @@ class _LoginScreenState extends State<LoginScreen> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // ── Top Banner — unchanged from Week 3 ──
             Container(
               width: double.infinity,
               height: 300,
@@ -89,7 +107,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       height: 160,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: AppColors.cyan.withOpacity(0.1),
+                        color: AppColors.cyan.withValues(alpha: 0.1),
                       ),
                     ),
                   ),
@@ -101,7 +119,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       height: 120,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: AppColors.purple.withOpacity(0.1),
+                        color: AppColors.purple.withValues(alpha: 0.1),
                       ),
                     ),
                   ),
@@ -113,14 +131,14 @@ class _LoginScreenState extends State<LoginScreen> {
                           padding: const EdgeInsets.all(18),
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: Colors.white.withOpacity(0.15),
+                            color: Colors.white.withValues(alpha: 0.15),
                             border: Border.all(
-                              color: AppColors.cyan.withOpacity(0.5),
+                              color: AppColors.cyan.withValues(alpha: 0.5),
                               width: 2,
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: AppColors.cyan.withOpacity(0.3),
+                                color: AppColors.cyan.withValues(alpha: 0.3),
                                 blurRadius: 20,
                               ),
                             ],
@@ -153,7 +171,6 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
 
-            // ── Form ──
             Padding(
               padding: const EdgeInsets.all(24),
               child: Column(
@@ -172,7 +189,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 8),
                   TextField(
                     controller: _emailController,
+                    focusNode: _emailFocus,
                     keyboardType: TextInputType.emailAddress,
+                    textInputAction: TextInputAction.next,
+                    onSubmitted: (_) => _passwordFocus.requestFocus(),
                     style: TextStyle(
                       color: isDark ? AppColors.textWhite : Colors.black87,
                     ),
@@ -214,7 +234,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 8),
                   TextField(
                     controller: _passwordController,
+                    focusNode: _passwordFocus,
                     obscureText: _obscurePassword,
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => _isLoading ? null : _handleLogin(),
                     style: TextStyle(
                       color: isDark ? AppColors.textWhite : Colors.black87,
                     ),
@@ -254,7 +277,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
 
-                  // ── Week 4: Error message ────────────────────
                   if (_errorMessage != null) ...[
                     const SizedBox(height: 14),
                     Container(
@@ -263,9 +285,11 @@ class _LoginScreenState extends State<LoginScreen> {
                         vertical: 10,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.red.withOpacity(0.08),
+                        color: Colors.red.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.red.withOpacity(0.3)),
+                        border: Border.all(
+                          color: Colors.red.withValues(alpha: 0.3),
+                        ),
                       ),
                       child: Row(
                         children: [
@@ -291,7 +315,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   const SizedBox(height: 30),
 
-                  // ── Login Button ──
                   Container(
                     width: double.infinity,
                     height: 52,
@@ -302,7 +325,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       borderRadius: BorderRadius.circular(14),
                       boxShadow: [
                         BoxShadow(
-                          color: AppColors.cyan.withOpacity(0.3),
+                          color: AppColors.cyan.withValues(alpha: 0.3),
                           blurRadius: 12,
                           offset: const Offset(0, 4),
                         ),

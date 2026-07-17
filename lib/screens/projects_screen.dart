@@ -86,7 +86,10 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
 
   List<Project> _projects = [];
   bool _loadingApi = true;
-  bool _isOffline = false; // ← Week 5
+  bool _isOffline = false;
+  bool _isFallbackData = false;
+
+  int _requestId = 0;
 
   final List<Project> _localProjects = [
     Project(
@@ -156,12 +159,16 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
   }
 
   Future<void> _loadFromApi() async {
+    final thisRequest = ++_requestId;
     setState(() => _loadingApi = true);
+
     final res = await ApiService.getProjects(
       category: _selectedCategory,
       search: _searchQuery.isEmpty ? null : _searchQuery,
     );
-    if (!mounted) return;
+
+    if (!mounted || thisRequest != _requestId) return;
+
     if (res.success && res.data != null) {
       final list = (res.data as List)
           .map((j) => Project.fromApi(j as Map<String, dynamic>))
@@ -169,13 +176,15 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
       setState(() {
         _projects = list;
         _loadingApi = false;
-        _isOffline = res.fromCache; // ← Week 5
+        _isOffline = res.fromCache;
+        _isFallbackData = false;
       });
     } else {
       setState(() {
         _projects = _localProjects;
         _loadingApi = false;
         _isOffline = false;
+        _isFallbackData = true;
       });
     }
   }
@@ -187,6 +196,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
   }
 
   List<Project> get _filteredProjects {
+    if (!_isFallbackData) return _projects;
     return _projects.where((p) {
       final matchesCat =
           _selectedCategory == 'All' || p.category == _selectedCategory;
@@ -239,16 +249,15 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
       ),
       body: Column(
         children: [
-          // ── Week 5: Offline Banner ──────────────────────────
           if (_isOffline)
             Container(
               width: double.infinity,
               margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.1),
+                color: Colors.orange.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
               ),
               child: const Row(
                 children: [
@@ -266,9 +275,54 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
                   ),
                 ],
               ),
+            )
+          else if (_isFallbackData)
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.error_outline_rounded,
+                    color: Colors.red,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Text(
+                      'Could not load live projects — showing example data.',
+                      style: TextStyle(
+                        color: Colors.red,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _loadFromApi,
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      minimumSize: Size.zero,
+                    ),
+                    child: const Text(
+                      'Retry',
+                      style: TextStyle(
+                        color: Colors.red,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
 
-          // ── Search Bar ──────────────────────────────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
             child: Container(
@@ -276,12 +330,12 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
                 color: cardBg,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: AppColors.cyan.withOpacity(0.15),
+                  color: AppColors.cyan.withValues(alpha: 0.15),
                   width: 1,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.cyan.withOpacity(0.05),
+                    color: AppColors.cyan.withValues(alpha: 0.05),
                     blurRadius: 10,
                     offset: const Offset(0, 3),
                   ),
@@ -327,7 +381,6 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
 
           const SizedBox(height: 12),
 
-          // ── Category Filter ─────────────────────────────────
           SizedBox(
             height: 38,
             child: ListView.builder(
@@ -357,12 +410,12 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
                       border: Border.all(
                         color: isSelected
                             ? Colors.transparent
-                            : AppColors.cyan.withOpacity(0.2),
+                            : AppColors.cyan.withValues(alpha: 0.2),
                       ),
                       boxShadow: isSelected
                           ? [
                               BoxShadow(
-                                color: AppColors.cyan.withOpacity(0.3),
+                                color: AppColors.cyan.withValues(alpha: 0.3),
                                 blurRadius: 10,
                                 offset: const Offset(0, 3),
                               ),
@@ -416,7 +469,6 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
 
           const SizedBox(height: 8),
 
-          // ── Projects List ───────────────────────────────────
           Expanded(
             child: _filteredProjects.isEmpty
                 ? Center(
@@ -426,7 +478,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
                         Icon(
                           Icons.search_off_rounded,
                           size: 60,
-                          color: AppColors.cyan.withOpacity(0.3),
+                          color: AppColors.cyan.withValues(alpha: 0.3),
                         ),
                         const SizedBox(height: 12),
                         Text(
@@ -441,7 +493,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
                         Text(
                           'Try a different search or category',
                           style: TextStyle(
-                            color: textSub.withOpacity(0.7),
+                            color: textSub.withValues(alpha: 0.7),
                             fontSize: 13,
                           ),
                         ),
@@ -463,16 +515,47 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
   }
 }
 
+Future<void> _launchProjectUrl(BuildContext context, String url) async {
+  if (url.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('No link available for this project.'),
+        backgroundColor: Colors.red,
+      ),
+    );
+    return;
+  }
+  try {
+    final uri = Uri.parse(url);
+    final launched = await canLaunchUrl(uri);
+    if (launched) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not open this link.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  } catch (_) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not open this link.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+}
+
 class _ProjectCard extends StatelessWidget {
   final Project project;
   final bool isDark;
   const _ProjectCard({required this.project, required this.isDark});
-
-  Future<void> _launchURL(String url) async {
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri))
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -489,12 +572,14 @@ class _ProjectCard extends StatelessWidget {
           color: isDark ? AppColors.cardDark : AppColors.lightCard,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: project.colors.first.withOpacity(0.25),
+            color: project.colors.first.withValues(alpha: 0.25),
             width: 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: project.colors.first.withOpacity(isDark ? 0.12 : 0.07),
+              color: project.colors.first.withValues(
+                alpha: isDark ? 0.12 : 0.07,
+              ),
               blurRadius: 16,
               offset: const Offset(0, 5),
             ),
@@ -515,7 +600,7 @@ class _ProjectCard extends StatelessWidget {
                           height: 130,
                           width: double.infinity,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) =>
+                          errorBuilder: (context, error, stackTrace) =>
                               _iconBanner(isDark: isDark),
                         ),
                         Container(
@@ -524,7 +609,7 @@ class _ProjectCard extends StatelessWidget {
                             gradient: LinearGradient(
                               colors: [
                                 Colors.transparent,
-                                Colors.black.withOpacity(0.5),
+                                Colors.black.withValues(alpha: 0.5),
                               ],
                               begin: Alignment.topCenter,
                               end: Alignment.bottomCenter,
@@ -540,7 +625,9 @@ class _ProjectCard extends StatelessWidget {
                               vertical: 3,
                             ),
                             decoration: BoxDecoration(
-                              color: project.colors.first.withOpacity(0.85),
+                              color: project.colors.first.withValues(
+                                alpha: 0.85,
+                              ),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
@@ -590,12 +677,12 @@ class _ProjectCard extends StatelessWidget {
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: project.colors
-                            .map((c) => c.withOpacity(0.1))
+                            .map((c) => c.withValues(alpha: 0.1))
                             .toList(),
                       ),
                       borderRadius: BorderRadius.circular(6),
                       border: Border.all(
-                        color: project.colors.first.withOpacity(0.25),
+                        color: project.colors.first.withValues(alpha: 0.25),
                       ),
                     ),
                     child: Text(
@@ -612,7 +699,8 @@ class _ProjectCard extends StatelessWidget {
                     children: [
                       Expanded(
                         child: OutlinedButton.icon(
-                          onPressed: () => _launchURL(project.githubUrl),
+                          onPressed: () =>
+                              _launchProjectUrl(context, project.githubUrl),
                           icon: const Icon(Icons.code_rounded, size: 14),
                           label: const Text(
                             'GitHub',
@@ -621,7 +709,9 @@ class _ProjectCard extends StatelessWidget {
                           style: OutlinedButton.styleFrom(
                             foregroundColor: project.colors.first,
                             side: BorderSide(
-                              color: project.colors.first.withOpacity(0.5),
+                              color: project.colors.first.withValues(
+                                alpha: 0.5,
+                              ),
                             ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
@@ -638,14 +728,17 @@ class _ProjectCard extends StatelessWidget {
                             borderRadius: BorderRadius.circular(10),
                             boxShadow: [
                               BoxShadow(
-                                color: project.colors.first.withOpacity(0.3),
+                                color: project.colors.first.withValues(
+                                  alpha: 0.3,
+                                ),
                                 blurRadius: 8,
                                 offset: const Offset(0, 3),
                               ),
                             ],
                           ),
                           child: ElevatedButton.icon(
-                            onPressed: () => _launchURL(project.liveUrl),
+                            onPressed: () =>
+                                _launchProjectUrl(context, project.liveUrl),
                             icon: const Icon(
                               Icons.launch_rounded,
                               size: 14,
@@ -686,7 +779,7 @@ class _ProjectCard extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: project.colors
-              .map((c) => c.withOpacity(isDark ? 0.25 : 0.12))
+              .map((c) => c.withValues(alpha: isDark ? 0.25 : 0.12))
               .toList(),
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -702,7 +795,7 @@ class _ProjectCard extends StatelessWidget {
               height: 80,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: project.colors.first.withOpacity(0.08),
+                color: project.colors.first.withValues(alpha: 0.08),
               ),
             ),
           ),
@@ -712,10 +805,10 @@ class _ProjectCard extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: project.colors.first.withOpacity(0.15),
+                color: project.colors.first.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: project.colors.first.withOpacity(0.3),
+                  color: project.colors.first.withValues(alpha: 0.3),
                 ),
               ),
               child: Text(
@@ -736,7 +829,7 @@ class _ProjectCard extends StatelessWidget {
                 gradient: LinearGradient(colors: project.colors),
                 boxShadow: [
                   BoxShadow(
-                    color: project.colors.first.withOpacity(0.4),
+                    color: project.colors.first.withValues(alpha: 0.4),
                     blurRadius: 14,
                   ),
                 ],
@@ -759,12 +852,6 @@ class ProjectDetailScreen extends StatelessWidget {
     required this.project,
     required this.isDark,
   });
-
-  Future<void> _launchURL(String url) async {
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri))
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -803,7 +890,8 @@ class ProjectDetailScreen extends StatelessWidget {
                           height: 180,
                           width: double.infinity,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => _detailIconBanner(),
+                          errorBuilder: (context, error, stackTrace) =>
+                              _detailIconBanner(),
                         ),
                         Container(
                           height: 180,
@@ -811,7 +899,7 @@ class ProjectDetailScreen extends StatelessWidget {
                             gradient: LinearGradient(
                               colors: [
                                 Colors.transparent,
-                                Colors.black.withOpacity(0.6),
+                                Colors.black.withValues(alpha: 0.6),
                               ],
                               begin: Alignment.topCenter,
                               end: Alignment.bottomCenter,
@@ -859,12 +947,12 @@ class ProjectDetailScreen extends StatelessWidget {
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: project.colors
-                      .map((c) => c.withOpacity(0.1))
+                      .map((c) => c.withValues(alpha: 0.1))
                       .toList(),
                 ),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: project.colors.first.withOpacity(0.3),
+                  color: project.colors.first.withValues(alpha: 0.3),
                 ),
               ),
               child: Text(
@@ -899,10 +987,12 @@ class ProjectDetailScreen extends StatelessWidget {
               width: double.infinity,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.cyan.withOpacity(0.4)),
+                border: Border.all(
+                  color: AppColors.cyan.withValues(alpha: 0.4),
+                ),
               ),
               child: ElevatedButton.icon(
-                onPressed: () => _launchURL(project.githubUrl),
+                onPressed: () => _launchProjectUrl(context, project.githubUrl),
                 icon: const Icon(Icons.code_rounded, color: AppColors.cyan),
                 label: const Text(
                   'View on GitHub',
@@ -926,14 +1016,14 @@ class ProjectDetailScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
-                    color: project.colors.first.withOpacity(0.4),
+                    color: project.colors.first.withValues(alpha: 0.4),
                     blurRadius: 12,
                     offset: const Offset(0, 4),
                   ),
                 ],
               ),
               child: ElevatedButton.icon(
-                onPressed: () => _launchURL(project.liveUrl),
+                onPressed: () => _launchProjectUrl(context, project.liveUrl),
                 icon: const Icon(Icons.launch_rounded, color: Colors.white),
                 label: const Text(
                   'Live Demo',
@@ -961,7 +1051,7 @@ class ProjectDetailScreen extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: project.colors
-              .map((c) => c.withOpacity(isDark ? 0.25 : 0.12))
+              .map((c) => c.withValues(alpha: isDark ? 0.25 : 0.12))
               .toList(),
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -975,7 +1065,7 @@ class ProjectDetailScreen extends StatelessWidget {
             gradient: LinearGradient(colors: project.colors),
             boxShadow: [
               BoxShadow(
-                color: project.colors.first.withOpacity(0.5),
+                color: project.colors.first.withValues(alpha: 0.5),
                 blurRadius: 24,
               ),
             ],

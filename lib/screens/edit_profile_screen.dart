@@ -24,6 +24,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   bool _isSaving = false;
   bool _saved = false;
 
+  static final RegExp _emailPattern = RegExp(r'^[\w\.\-]+@[\w\-]+\.[\w\-\.]+$');
+
   @override
   void initState() {
     super.initState();
@@ -54,32 +56,59 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.dispose();
   }
 
+  void _showError(String msg) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
+  }
+
   Future<void> _saveProfile() async {
-    if (_nameController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Name cannot be empty!'),
-          backgroundColor: Colors.red,
-        ),
-      );
+    final name = _nameController.text.trim();
+    final email = _emailController.text.trim();
+    final phone = _phoneController.text.trim();
+    final bio = _bioController.text.trim();
+
+    if (name.isEmpty) {
+      _showError('Name cannot be empty!');
+      return;
+    }
+    if (email.isEmpty) {
+      _showError('Email cannot be empty!');
+      return;
+    }
+    if (!_emailPattern.hasMatch(email)) {
+      _showError('Please enter a valid email address.');
+      return;
+    }
+    if (phone.isNotEmpty &&
+        phone.replaceAll(RegExp(r'[^0-9]'), '').length < 7) {
+      _showError('Please enter a valid phone number.');
       return;
     }
 
     setState(() => _isSaving = true);
 
-    await StorageService.saveProfile(
-      name: _nameController.text.trim(),
-      bio: _bioController.text.trim(),
-      email: _emailController.text.trim(),
-      phone: _phoneController.text.trim(),
-    );
+    try {
+      await StorageService.saveProfile(
+        name: name,
+        bio: bio,
+        email: email,
+        phone: phone,
+      );
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSaving = false);
+        _showError('Could not save changes. Please try again.');
+      }
+      return;
+    }
 
+    if (!mounted) return;
     setState(() {
       _isSaving = false;
       _saved = true;
     });
 
-    // Show success then go back
     await Future.delayed(const Duration(milliseconds: 800));
     if (mounted) Navigator.pop(context);
   }
@@ -115,7 +144,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           ),
         ),
         actions: [
-          // Save button in appbar
           TextButton(
             onPressed: _isSaving ? null : _saveProfile,
             child: _isSaving
@@ -148,7 +176,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Avatar ──
             Center(
               child: Stack(
                 children: [
@@ -162,7 +189,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: AppColors.cyan.withOpacity(0.3),
+                          color: AppColors.cyan.withValues(alpha: 0.3),
                           blurRadius: 16,
                         ),
                       ],
@@ -200,14 +227,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
             const SizedBox(height: 28),
 
-            // ── Info Banner ──
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: AppColors.cyan.withOpacity(0.08),
+                color: AppColors.cyan.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: AppColors.cyan.withOpacity(0.2),
+                  color: AppColors.cyan.withValues(alpha: 0.2),
                   width: 1,
                 ),
               ),
@@ -236,7 +262,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
             const SizedBox(height: 24),
 
-            // ── Form Fields ──
             _FieldLabel(text: 'Full Name', isDark: isDark),
             const SizedBox(height: 8),
             _InputField(
@@ -288,7 +313,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 color: cardBg,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: AppColors.cyan.withOpacity(0.15),
+                  color: AppColors.cyan.withValues(alpha: 0.15),
                   width: 1,
                 ),
               ),
@@ -307,7 +332,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
             const SizedBox(height: 32),
 
-            // ── Save Button ──
             GestureDetector(
               onTap: _isSaving ? null : _saveProfile,
               child: Container(
@@ -324,7 +348,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   borderRadius: BorderRadius.circular(14),
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.cyan.withOpacity(0.3),
+                      color: AppColors.cyan.withValues(alpha: 0.3),
                       blurRadius: 14,
                       offset: const Offset(0, 4),
                     ),
@@ -380,8 +404,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 }
 
-// ── Reusable Widgets ──
-
 class _FieldLabel extends StatelessWidget {
   final String text;
   final bool isDark;
@@ -427,7 +449,10 @@ class _InputField extends StatelessWidget {
       decoration: BoxDecoration(
         color: cardBg,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.cyan.withOpacity(0.15), width: 1),
+        border: Border.all(
+          color: AppColors.cyan.withValues(alpha: 0.15),
+          width: 1,
+        ),
       ),
       child: TextField(
         controller: controller,
