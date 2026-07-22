@@ -57,45 +57,51 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _loadApiData({bool isInitial = false}) async {
+    // Fetch profile and skills at the same time since neither depends
+    // on the other — cuts the wait roughly in half versus doing them
+    // one after another.
+    final results = await Future.wait([
+      ApiService.getProfile(),
+      ApiService.getSkills(),
+    ]);
+
+    if (!mounted) return;
+
+    final profileRes = results[0];
+    final skillsRes = results[1];
+
     bool profileFailed = false;
     String? profileError;
 
-    final profileRes = await ApiService.getProfile();
-    if (mounted) {
+    // One setState covers everything from both calls — a single
+    // rebuild instead of three separate ones.
+    setState(() {
       if (profileRes.success) {
         final data = profileRes.data;
-        final fromCache = profileRes.fromCache;
-        setState(() {
-          if (data['name'] != null) _profile['name'] = data['name'];
-          if (data['bio'] != null) _profile['bio'] = data['bio'];
-          if (data['email'] != null) _profile['email'] = data['email'];
-          if (data['phone'] != null) _profile['phone'] = data['phone'];
-          if (data['profileImage'] != null) {
-            _apiProfileImage = data['profileImage'];
-          }
-          _apiLoaded = true;
-          _isOffline = fromCache;
-        });
+        if (data['name'] != null) _profile['name'] = data['name'];
+        if (data['bio'] != null) _profile['bio'] = data['bio'];
+        if (data['email'] != null) _profile['email'] = data['email'];
+        if (data['phone'] != null) _profile['phone'] = data['phone'];
+        if (data['profileImage'] != null) {
+          _apiProfileImage = data['profileImage'];
+        }
+        _apiLoaded = true;
+        _isOffline = profileRes.fromCache;
       } else {
         profileFailed = true;
         profileError = profileRes.error;
       }
-    }
 
-    final skillsRes = await ApiService.getSkills();
-    if (mounted && skillsRes.success) {
-      setState(() => _apiSkills = skillsRes.data ?? []);
-    }
+      if (skillsRes.success) {
+        _apiSkills = skillsRes.data ?? [];
+      }
 
-    if (mounted) {
-      setState(() {
-        _isInitialLoading = false;
-        _hasLoadError = profileFailed;
-        _loadErrorMessage = profileFailed
-            ? (profileError ?? 'Could not load latest data.')
-            : null;
-      });
-    }
+      _isInitialLoading = false;
+      _hasLoadError = profileFailed;
+      _loadErrorMessage = profileFailed
+          ? (profileError ?? 'Could not load latest data.')
+          : null;
+    });
   }
 
   @override
@@ -118,6 +124,7 @@ class _HomeScreenState extends State<HomeScreen>
     final cardBg = isDark ? AppColors.cardDark : AppColors.lightCard;
     final textSub = isDark ? AppColors.textGrey : AppColors.lightTextSub;
     final textPrimary = isDark ? AppColors.textWhite : AppColors.lightText;
+    final dpr = MediaQuery.of(context).devicePixelRatio;
 
     return Scaffold(
       backgroundColor: bg,
@@ -200,6 +207,7 @@ class _HomeScreenState extends State<HomeScreen>
               isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
               color: AppColors.cyan,
             ),
+            tooltip: isDark ? 'Switch to light mode' : 'Switch to dark mode',
             onPressed: widget.onToggleTheme,
           ),
         ],
@@ -360,6 +368,12 @@ class _HomeScreenState extends State<HomeScreen>
                                       width: 118,
                                       height: 118,
                                       fit: BoxFit.cover,
+                                      // Decode at the actual display size
+                                      // (times device pixel ratio) instead
+                                      // of whatever resolution the server
+                                      // sent — less memory, faster paint.
+                                      cacheWidth: (118 * dpr).round(),
+                                      cacheHeight: (118 * dpr).round(),
                                       loadingBuilder: (context, child, progress) {
                                         if (progress == null) return child;
                                         return SizedBox(
@@ -391,6 +405,8 @@ class _HomeScreenState extends State<HomeScreen>
                                                 width: 118,
                                                 height: 118,
                                                 fit: BoxFit.cover,
+                                                cacheWidth: (118 * dpr).round(),
+                                                cacheHeight: (118 * dpr).round(),
                                               ),
                                     )
                                   : Image.asset(
@@ -398,6 +414,8 @@ class _HomeScreenState extends State<HomeScreen>
                                       width: 118,
                                       height: 118,
                                       fit: BoxFit.cover,
+                                      cacheWidth: (118 * dpr).round(),
+                                      cacheHeight: (118 * dpr).round(),
                                     ),
                             ),
                             Positioned(

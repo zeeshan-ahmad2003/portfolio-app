@@ -128,6 +128,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_rounded, color: AppColors.cyan),
+          tooltip: 'Back',
           onPressed: () => Navigator.pop(context),
         ),
         title: ShaderMask(

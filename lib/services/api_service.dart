@@ -6,9 +6,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'storage_service.dart';
 
 class ApiService {
-  static const String _base = 'http://10.0.2.2:3000';
+  static const String _base = 'https://portfolio-backend-g3zt.onrender.com';
   static const Duration _timeout = Duration(seconds: 10);
   static const String _tokenKey = 'auth_token';
+
+  // One shared connection reused for every request instead of
+  // opening a brand-new one each time — faster on repeated calls.
+  static final http.Client _client = http.Client();
 
   static Future<void> saveToken(String token) async {
     final prefs = await SharedPreferences.getInstance();
@@ -86,7 +90,7 @@ class ApiService {
     }
 
     try {
-      final res = await http
+      final res = await _client
           .post(
             Uri.parse('$_base/api/login'),
             headers: _publicHeaders,
@@ -127,7 +131,7 @@ class ApiService {
   static Future<void> logout() async {
     try {
       final headers = await _authHeaders();
-      await http
+      await _client
           .post(Uri.parse('$_base/api/logout'), headers: headers)
           .timeout(_timeout);
     } catch (_) {
@@ -141,7 +145,7 @@ class ApiService {
   // ── Profile ──────────────────────────────────────────────
   static Future<ApiResponse> getProfile() async {
     try {
-      final res = await http
+      final res = await _client
           .get(Uri.parse('$_base/api/profile'), headers: _publicHeaders)
           .timeout(_timeout);
 
@@ -166,7 +170,7 @@ class ApiService {
   static Future<ApiResponse> updateProfile(Map<String, dynamic> data) async {
     try {
       final headers = await _authHeaders();
-      final res = await http
+      final res = await _client
           .put(
             Uri.parse('$_base/api/profile'),
             headers: headers,
@@ -203,7 +207,7 @@ class ApiService {
       request.files.add(
         await http.MultipartFile.fromPath('image', imageFile.path),
       );
-      final streamed = await request.send().timeout(_timeout);
+      final streamed = await _client.send(request).timeout(_timeout);
       final res = await http.Response.fromStream(streamed);
 
       final body = _safeDecode(res);
@@ -236,7 +240,7 @@ class ApiService {
       final uri = Uri.parse(
         '$_base/api/projects',
       ).replace(queryParameters: params);
-      final res = await http
+      final res = await _client
           .get(uri, headers: _publicHeaders)
           .timeout(_timeout);
 
@@ -267,7 +271,7 @@ class ApiService {
   // ── Skills ───────────────────────────────────────────────
   static Future<ApiResponse> getSkills() async {
     try {
-      final res = await http
+      final res = await _client
           .get(Uri.parse('$_base/api/skills'), headers: _publicHeaders)
           .timeout(_timeout);
 
@@ -289,7 +293,7 @@ class ApiService {
   // ── Contact ──────────────────────────────────────────────
   static Future<ApiResponse> getContact() async {
     try {
-      final res = await http
+      final res = await _client
           .get(Uri.parse('$_base/api/contact'), headers: _publicHeaders)
           .timeout(_timeout);
 

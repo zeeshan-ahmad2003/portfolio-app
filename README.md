@@ -36,6 +36,9 @@ A cross-platform mobile portfolio application built with Flutter, showcasing my 
 - **Graceful Error Handling** — every network call has a specific, human-readable failure message (no reachable server, timeout, bad response) with retry actions where relevant
 - **Loading States** — first-load progress indicators distinct from pull-to-refresh
 
+### Accessibility
+- **Tooltips on icon-only controls** — password visibility toggle, back buttons, search-clear icon, and theme toggle all have accessible labels for screen readers
+
 ---
 
 ## 🛠 Tech Stack
@@ -51,6 +54,7 @@ A cross-platform mobile portfolio application built with Flutter, showcasing my 
 - Node.js & Express
 - JWT authentication
 - RESTful API (`/api/login`, `/api/profile`, `/api/projects`, `/api/skills`, `/api/contact`)
+- Deployed on [Render](https://render.com) — live at `https://portfolio-backend-g3zt.onrender.com`
 
 **Testing**
 - `flutter_test` — widget and unit tests covering login validation, data persistence, API response handling, and navigation
@@ -79,11 +83,10 @@ portfolio_app/
 │   ├── api_service_test.dart
 │   ├── navigation_test.dart
 │   └── widget_test.dart
-├── portfolio_backend/             # Node.js/Express API
-│   ├── server.js
-│   └── package.json
 └── pubspec.yaml
 ```
+
+> The backend now lives in its own repository: [portfolio-backend](https://github.com/zeeshan-ahmad2003/portfolio-backend), deployed independently on Render.
 
 ---
 
@@ -91,7 +94,6 @@ portfolio_app/
 
 ### Prerequisites
 - [Flutter SDK](https://docs.flutter.dev/get-started/install) (stable channel)
-- [Node.js](https://nodejs.org/) (for the backend)
 - An emulator/simulator or physical device
 
 ### 1. Clone the repository
@@ -105,22 +107,24 @@ cd portfolio-app
 flutter pub get
 ```
 
-### 3. Start the backend server
-```bash
-cd portfolio_backend
-node server.js
-```
-The API runs on `http://localhost:3000`. On an Android emulator, the app connects via `http://10.0.2.2:3000` (already configured in `api_service.dart`).
-
-### 4. Run the app
-In a separate terminal, from the project root:
+### 3. Run the app
 ```bash
 flutter run
 ```
+By default, the app connects to the live backend at `https://portfolio-backend-g3zt.onrender.com` — no local server setup needed.
 
 **Demo login:**
 - Email: `z.ahmad2003x@gmail.com`
 - Password: `zeeshan2024`
+
+### Optional: Run the backend locally
+If you want to develop against the backend directly:
+```bash
+git clone https://github.com/zeeshan-ahmad2003/portfolio-backend.git
+cd portfolio-backend
+node server.js
+```
+The API runs on `http://localhost:3000`. To point the app at it, update `_base` in `lib/services/api_service.dart` — use `http://10.0.2.2:3000` on an Android emulator, or your Mac's local IP (`ipconfig getifaddr en0`) on a physical device.
 
 ---
 

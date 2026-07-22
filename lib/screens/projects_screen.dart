@@ -363,6 +363,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
                             color: textSub,
                             size: 18,
                           ),
+                          tooltip: 'Clear search',
                           onPressed: () {
                             _searchController.clear();
                             _onSearchChanged('');
@@ -595,11 +596,18 @@ class _ProjectCard extends StatelessWidget {
               child: project.imagePath != null
                   ? Stack(
                       children: [
+                        // Card thumbnail is shown at 130px tall — decoding at
+                        // that target size (times device pixel ratio) instead
+                        // of the asset's full resolution cuts memory and CPU
+                        // cost per card, which adds up when scrolling a list.
                         Image.asset(
                           project.imagePath!,
                           height: 130,
                           width: double.infinity,
                           fit: BoxFit.cover,
+                          cacheHeight:
+                              (130 * MediaQuery.of(context).devicePixelRatio)
+                                  .round(),
                           errorBuilder: (context, error, stackTrace) =>
                               _iconBanner(isDark: isDark),
                         ),
@@ -864,6 +872,7 @@ class ProjectDetailScreen extends StatelessWidget {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_rounded, color: AppColors.cyan),
+          tooltip: 'Back',
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
@@ -885,11 +894,16 @@ class ProjectDetailScreen extends StatelessWidget {
               child: project.imagePath != null
                   ? Stack(
                       children: [
+                        // Same idea here — this banner is shown at 180px
+                        // tall, so decode at that size rather than full res.
                         Image.asset(
                           project.imagePath!,
                           height: 180,
                           width: double.infinity,
                           fit: BoxFit.cover,
+                          cacheHeight:
+                              (180 * MediaQuery.of(context).devicePixelRatio)
+                                  .round(),
                           errorBuilder: (context, error, stackTrace) =>
                               _detailIconBanner(),
                         ),
