@@ -5,6 +5,8 @@ A cross-platform mobile portfolio application built with Flutter, showcasing my 
 **Built by:** Zeeshan Ahmad
 **Internship:** App Development Intern @ Codiora Software House
 
+> **Week 8 Final Project Submission** — Codiora Software House App Development Internship (Weeks 1–8 complete).
+
 ---
 
 ## 📱 Screenshots
@@ -35,6 +37,10 @@ A cross-platform mobile portfolio application built with Flutter, showcasing my 
 - **Input Validation** — email format, empty fields, and image size checks before any network call
 - **Graceful Error Handling** — every network call has a specific, human-readable failure message (no reachable server, timeout, bad response) with retry actions where relevant
 - **Loading States** — first-load progress indicators distinct from pull-to-refresh
+
+### Cross-Platform Verified
+- **Android** — tested on emulator and physical device throughout development
+- **iOS** — tested on physical iPhone 12 Pro and iOS Simulator (iPhone 16 Pro, iOS 18.6) via Xcode
 
 ### Accessibility
 - **Tooltips on icon-only controls** — password visibility toggle, back buttons, search-clear icon, and theme toggle all have accessible labels for screen readers
